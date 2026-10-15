@@ -593,7 +593,7 @@ function renderList(){
 // ═══ PROGRESS ═══
 // Same statuses and colours as the Buying Tracker
 const STAGE_CLASS={'Quoting':'stg-quoting','Sampling':'stg-sampling','Awaiting Jake Approval':'stg-jake','QC':'stg-qc',
-  'Awaiting Spec Forms':'stg-spec','Awaiting Response':'stg-resp','Loaded / Shipped':'stg-loaded','On Hold':'stg-hold','Cancelled / Dropped':'stg-cancelled'};
+  'Awaiting Spec Forms':'stg-spec','Awaiting Response':'stg-resp','Loaded / Shipped':'stg-loaded','To-Do':'stg-hold','On Hold':'stg-hold','Cancelled / Dropped':'stg-cancelled'};
 const stagePill=s=>`<span class="stg ${STAGE_CLASS[s]||'stg-hold'}">${esc(s||'—')}</span>`;
 function progressHTML(p){
   return `<div class="prog">

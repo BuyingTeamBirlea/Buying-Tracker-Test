@@ -200,6 +200,8 @@ td{padding:10px 13px;font-size:.875rem;vertical-align:middle}
 .badge-spec-forms    {background:rgba(56,189,248,.14);color:#38bdf8;border:1px solid rgba(56,189,248,.35)}
 .badge-awaiting-resp {background:rgba(236,72,153,.14);color:#f472b6;border:1px solid rgba(236,72,153,.35)}
 .badge-loaded        {background:rgba(148,163,184,.12);color:#94a3b8;border:1px solid rgba(148,163,184,.3)}
+.badge-todo          {background:rgba(148,163,184,.14);color:#a3acbd;border:1px solid rgba(148,163,184,.32)}
+body.light-mode .badge-todo{color:#4b5563}
 .badge-on-hold       {background:rgba(100,116,139,.12);color:#7f8ea3;border:1px solid rgba(100,116,139,.25)}
 .badge-cancelled     {background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2)}
 .badge-archived      {background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.25);font-size:.7rem}
@@ -758,7 +760,7 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
       <option value="">All Statuses</option>
       <option>Quoting</option><option>Sampling</option><option>Awaiting Jake Approval</option>
       <option>Awaiting Spec Forms</option><option>Awaiting Response</option>
-      <option>On Hold</option><option>Cancelled / Dropped</option>
+      <option>To-Do</option><option>On Hold</option><option>Cancelled / Dropped</option>
     </select>
     <select id="sortSelect">
       <option value="days_inactive">Days inactive</option>
@@ -1103,7 +1105,7 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
         <div class="field"><label>Status</label><select id="add-stage">
           <option>Quoting</option><option>Sampling</option><option>Awaiting Jake Approval</option>
           <option>QC</option><option>Awaiting Spec Forms</option><option>Awaiting Response</option><option>Loaded / Shipped</option>
-          <option>On Hold</option><option>Cancelled / Dropped</option>
+          <option>To-Do</option><option>On Hold</option><option>Cancelled / Dropped</option>
         </select></div>
         <div class="field"><label>Date</label><input type="date" id="add-date"></div>
       </div>
@@ -1631,9 +1633,9 @@ const CATEGORIES = [
 ];
 const STAGES = [
   'Quoting','Sampling','Awaiting Jake Approval','QC','Awaiting Spec Forms',
-  'Awaiting Response','Loaded / Shipped','On Hold','Cancelled / Dropped'
+  'Awaiting Response','Loaded / Shipped','To-Do','On Hold','Cancelled / Dropped'
 ];
-const NO_INACTIVE = new Set(['Loaded / Shipped','On Hold']);
+const NO_INACTIVE = new Set(['Loaded / Shipped','On Hold','To-Do']); // no days-inactive / chase tracking
 
 // ═══════════════════════════════════════
 // BC DATA OVERRIDES — known-bad records
@@ -1661,7 +1663,7 @@ const STAGE_CLS = {
   'Awaiting Jake Approval':'badge-awaiting-jake-red','QC':'badge-qc-green',
   'Awaiting Spec Forms':'badge-spec-forms',
   'Awaiting Response':'badge-awaiting-resp','Loaded / Shipped':'badge-loaded',
-  'On Hold':'badge-on-hold','Cancelled / Dropped':'badge-cancelled'
+  'To-Do':'badge-todo','On Hold':'badge-on-hold','Cancelled / Dropped':'badge-cancelled'
 };
 
 // ═══════════════════════════════════════
@@ -3923,13 +3925,14 @@ async function confirmDeleteItem(id){
 // ═══════════════════════════════════════
 function openAddModal(){
   _reqConvert=null; if($('addSaveBtn')) $('addSaveBtn').textContent='Add Item';
+  if($('add-stage')){ $('add-stage').disabled=false; $('add-stage').value='Quoting'; }
   $('add-name').value=''; $('add-note').value=''; $('add-date').value=todayISO();
   populateCategorySelect('add-category','Birlea');
   addPillSelected=[];
   initPillSelect('add-pill-input','add-pill-dd','add-pills',addPillSelected,false);
   $('addOverlay').classList.remove('hidden');
 }
-function closeAdd(){ $('addOverlay').classList.add('hidden'); }
+function closeAdd(){ $('addOverlay').classList.add('hidden'); if($('add-stage')) $('add-stage').disabled=false; }
 
 async function saveNewItem(){
   const _rc=_reqConvert; // set when this item is being created from a sales request
@@ -5967,7 +5970,9 @@ const reqBuyers=[ // who requests can be assigned to, in dropdown order
   {email:'michael.prime@birlea.com',display_name:'Michael'}
 ];
 // Request type → tracker category when there's no customer to go on
-const REQ_TYPE_CATEGORY={'Customer Service':'Customer Service Enquiries','Margin Sheets':'Miscellaneous','BC Set Up':'Miscellaneous','PIM Assistance':'Miscellaneous'};
+const REQ_TYPE_CATEGORY={'Customer Service':'Customer Service Enquiries','BC Set Up':'Miscellaneous','PIM Assistance':'Miscellaneous'};
+// Starting status per request type (anything not listed → Quoting)
+const REQ_TYPE_STAGE={'Customer Service':'Awaiting Response','Margin Sheets':'To-Do','BC Set Up':'To-Do','PIM Assistance':'To-Do'};
 const reqTitleText=r=>r.request_type==='Customer Service'?`SKU ${r.title}${r.cs_ticket?' · '+r.cs_ticket:''}`:r.title;
 let reqData=[], reqLinks=[], reqOpenId=null, _reqConvert=null, _reqAvailable=true;
 let _lastKnownReqTs=null, _reqKnownIds=null, _reqFiles=[], _reqMsgs=[], _reqBlobs={}, _reqDeclining=false;
@@ -6125,9 +6130,10 @@ async function refreshReqModal(){
     </div>
     ${r.description?`<div class="rq-desc">${r.request_type==='Customer Service'?'<b>Query</b>\n':''}${esc(r.description)}</div>`:''}
     <div class="rq-sec">
-      <div class="section-title">Item cards (${items.length})</div>
+      <div class="section-title" style="display:flex;align-items:center;gap:8px">Item cards (${items.length})
+        ${open?`<button class="btn btn-sm" style="margin-left:auto;text-transform:none;letter-spacing:0" onclick="createItemFromRequest('${id}')">➕ Create item card</button>`:''}</div>
       ${items.length?`<div class="rq-links">${items.map(i=>`<div class="rq-link" onclick="closeReqModal();openDetail('${i.id}')"><span class="rq-ref">${esc(i.refCode||'')}</span><span style="flex:1">${esc(i.name)}</span><span class="badge ${STAGE_CLS[i.stage]||''}">${esc(i.stage)}</span></div>`).join('')}</div>`
-        :`<div style="font-size:.84rem;color:var(--text3)">None yet. Use <b>➕ Create item card</b> below. A ticket can create several cards (e.g. one per bed).</div>`}
+        :`<div style="font-size:.84rem;color:var(--text3)">None yet. A ticket can create several cards (e.g. one per bed), or be completed without one.</div>`}
     </div>
     <div class="rq-sec">
       <div class="section-title" style="display:flex;align-items:center;gap:8px">Attachments (${_reqFiles.length})
@@ -6150,10 +6156,12 @@ async function refreshReqModal(){
   if(focusId==='rqMsgText'||focusId==='rqDeclineReason'){ const el=$(focusId); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }
   $('rqFooter').innerHTML=open?`
       ${r.status==='New'?`<button class="btn btn-ghost" onclick="setReqStatus('${id}','Acknowledged'${r.assigned_to?'':`,{assigned_to:'${esc(me)}'}`})" title="Lets the rep know you've seen it${r.assigned_to?'':' and assigns it to you'}">✓ Acknowledge${r.assigned_to?'':' & take it'}</button>`:''}
+      <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteRequest('${id}')" title="Permanently delete this request">🗑 Delete</button>
       <div class="spacer"></div>
-      <button class="btn${items.length?' btn-ghost':''}" onclick="createItemFromRequest('${id}')">➕ Create item card</button>
-      ${items.length?`<button class="btn" onclick="completeRequest('${id}')" title="Removes it from the open list">✔ Mark complete</button>`:''}`
-    :`<button class="btn btn-ghost" onclick="setReqStatus('${id}','In Progress')">↺ Reopen</button><div class="spacer"></div><button class="btn btn-ghost" onclick="closeReqModal()">Close</button>`;
+      <button class="btn" onclick="completeRequest('${id}')" title="Removes it from the open list">✔ Mark complete</button>`
+    :`<button class="btn btn-ghost" onclick="setReqStatus('${id}','In Progress')">↺ Reopen</button>
+      <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteRequest('${id}')" title="Permanently delete this request">🗑 Delete</button>
+      <div class="spacer"></div><button class="btn btn-ghost" onclick="closeReqModal()">Close</button>`;
   reqHydrateThumbs();
 }
 
@@ -6210,7 +6218,22 @@ function declineRequest(id){
 }
 function completeRequest(id){
   const r=reqData.find(x=>x.id===id);
-  confirmAction(`Complete ${r?.ref||'request'}?`,'It leaves the open list. The rep keeps following the item card progress from their page.',()=>setReqStatus(id,'Complete'));
+  const n=reqItemsFor(id).length;
+  confirmAction(`Complete ${r?.ref||'request'}?`,n?'It leaves the open list. The rep keeps following the item card progress from their page.':'No item card was created for this request. It leaves the open list and shows as Complete to the rep.',()=>setReqStatus(id,'Complete'));
+}
+function deleteRequest(id){
+  const r=reqData.find(x=>x.id===id); if(!r) return;
+  confirmAction(`Delete ${r.ref}?`,'The request, its messages and attachments are removed for you and the rep. Any item cards created from it stay in the tracker. This cannot be undone.',async()=>{
+    try{
+      const files=await SB.get(`request_files?request_id=eq.${id}&select=storage_path`).catch(()=>[]);
+      if(files.length){ // remove the uploaded files from Supabase storage too
+        await fetch(`${SUPABASE_URL}/storage/v1/object/${REQ_BUCKET}`,{method:'DELETE',
+          headers:await authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({prefixes:files.map(f=>f.storage_path)})}).catch(()=>{});
+      }
+      await SB.delete(`requests?id=eq.${id}`); // messages, files and item links cascade
+      closeReqModal(); await loadRequests(); toast(`${r.ref} deleted`);
+    }catch(e){ toast('Delete failed: '+e.message,'error'); }
+  });
 }
 async function sendReqMsg(id){
   const t=($('rqMsgText')?.value||'').trim(); if(!t) return;
@@ -6225,14 +6248,19 @@ function createItemFromRequest(id){
   openAddModal();
   _reqConvert=id;
   $('add-name').value=r.request_type==='Customer Service'?`${r.title}${r.cs_ticket?' - '+r.cs_ticket:''}`:r.title;
-  const cat=REQ_TYPE_CATEGORY[r.request_type]||REQ_CUSTOMER_CATEGORY[(r.customer||'').trim().toLowerCase()]||'Exclusive - Other';
-  if([...$('add-category').options].some(o=>o.value===cat)) $('add-category').value=cat;
-  $('add-stage').value=r.request_type==='Sample'?'Sampling':'Quoting';
-  const bits=[`From sales request ${r.ref} (${reqName(r.requested_by)})${r.customer?' for '+r.customer:''}`];
-  if(r.cs_ticket) bits.push(`CS ticket ${r.cs_ticket}`);
-  bits.push(r.request_type);
-  if(r.target_price) bits.push(`target sales price ${r.target_price}`);
-  $('add-note').value=bits.join(' · ');
+  // Category: fixed by type (CS / BC / PIM), else by customer (NPD); Margin Sheets left for you to pick
+  const cat=REQ_TYPE_CATEGORY[r.request_type]||(r.customer?REQ_CUSTOMER_CATEGORY[r.customer.trim().toLowerCase()]||'Exclusive - Other':'');
+  if(cat&&[...$('add-category').options].some(o=>o.value===cat)) $('add-category').value=cat;
+  $('add-stage').value=REQ_TYPE_STAGE[r.request_type]||'Quoting';
+  if(r.request_type==='Customer Service'){
+    $('add-stage').disabled=true;                 // CS cards always start as Awaiting Response
+    $('add-note').value='Sent query to Factory';
+  }else{
+    const bits=[`From sales request ${r.ref} (${reqName(r.requested_by)})${r.customer?' for '+r.customer:''}`];
+    bits.push(r.request_type);
+    if(r.target_price) bits.push(`target sales price ${r.target_price}`);
+    $('add-note').value=bits.join(' · ');
+  }
   $('addSaveBtn').textContent='Create item card';
   setTimeout(()=>$('add-name').focus(),50);
 }
