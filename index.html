@@ -807,6 +807,8 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
       <select id="reqFilterSel" onchange="renderRequestsPage()" style="font-size:.82rem">
         <option value="open">Open</option>
         <option value="closed">Closed</option>
+        <option value="mine">Assigned to me</option>
+        <option value="unassigned">Unassigned</option>
         <option value="all">All</option>
       </select>
     </div>
@@ -815,7 +817,7 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
         <thead>
           <tr>
             <th>Ref</th><th>Customer</th><th>Request</th><th>From</th>
-            <th>Needed By</th><th>Due</th><th>Status</th><th>Item Cards</th><th>Received</th>
+            <th>Assigned To</th><th>Status</th><th>Item Cards</th><th>Received</th>
           </tr>
         </thead>
         <tbody id="reqBody"></tbody>
@@ -1622,7 +1624,9 @@ async function fetchPaginated(basePath, batchSize=500){
 // ═══════════════════════════════════════
 const CATEGORIES = [
   'Birlea','W&G','SleepSoul','JFS',
-  'Exclusive - BHF','Exclusive - Happy Beds','Exclusive - Wayfair','Exclusive - Other',
+  'Exclusive - BHF','Exclusive - Happy Beds','Exclusive - Wayfair',
+  'Exclusive - NEXT','Exclusive - Marketplaces','Exclusive - MattressOnline','Exclusive - MattressNextDay',
+  'Exclusive - Other',
   'Miscellaneous','Customer Service Enquiries'
 ];
 const STAGES = [
@@ -5955,7 +5959,9 @@ async function calDrop(e, targetISO){
 const REQ_BUCKET='request-files';
 const REQ_OPEN=new Set(['New','Acknowledged','In Progress']);
 const REQ_MEDIA_EXTS=new Set(['jpg','jpeg','png','webp','mp4']); // what the Media SharePoint target accepts
-const REQ_CUSTOMER_CATEGORY={'happy beds':'Exclusive - Happy Beds','bhf':'Exclusive - BHF','wayfair':'Exclusive - Wayfair'};
+const REQ_CUSTOMER_CATEGORY={'happy beds':'Exclusive - Happy Beds','bhf':'Exclusive - BHF','wayfair':'Exclusive - Wayfair',
+  'next':'Exclusive - NEXT','marketplaces':'Exclusive - Marketplaces','mattressonline':'Exclusive - MattressOnline','mattressnextday':'Exclusive - MattressNextDay'};
+let reqBuyers=[]; // [{email,display_name}] for the Assign dropdown
 let reqData=[], reqLinks=[], reqOpenId=null, _reqConvert=null, _reqAvailable=true;
 let _lastKnownReqTs=null, _reqKnownIds=null, _reqFiles=[], _reqMsgs=[], _reqBlobs={}, _reqDeclining=false;
 
@@ -5970,6 +5976,7 @@ async function loadRequests(silent=false){
       SB.get('requests?select=*&order=created_at.desc&limit=1000'),
       SB.get('request_items?select=request_id,item_id,created_at&order=created_at.asc')
     ]);
+    if(!reqBuyers.length) reqBuyers=await SB.get("app_users?role=eq.buyer&select=email,display_name&order=display_name").catch(()=>[]);
     reqData=rows||[]; reqLinks=links||[];
     _lastKnownReqTs=reqData.reduce((m,r)=>r.updated_at>m?r.updated_at:m,'');
     // Toast for anything new that arrived while the tracker was open
@@ -5988,6 +5995,7 @@ async function loadRequests(silent=false){
 }
 
 function reqName(email){
+  const b=reqBuyers.find(x=>x.email===(email||'').toLowerCase()); if(b&&b.display_name) return b.display_name;
   const n=(email||'').split('@')[0].split('.')[0];
   return n?n[0].toUpperCase()+n.slice(1):(email||'—');
 }
@@ -6001,30 +6009,40 @@ function updateReqBadge(){
   const b=$('reqNotifBadge');
   if(b){ b.textContent=attention; b.classList.toggle('show',attention>0); }
   const fresh=open.filter(r=>r.status==='New');
-  const overdue=open.filter(r=>r.needed_by&&r.needed_by<todayISO());
+  const unassigned=open.filter(r=>!r.assigned_to);
+  const stale=fresh.filter(r=>reqDays(r.created_at)>=2);
   const updates=open.filter(r=>r.status!=='New'&&r.buyer_unread);
   const bn=$('reqBanner'); if(!bn) return;
-  if(!fresh.length&&!overdue.length&&!updates.length){ bn.classList.add('hidden'); return; }
+  if(!fresh.length&&!unassigned.length&&!updates.length){ bn.classList.add('hidden'); return; }
   const parts=[];
   if(fresh.length) parts.push(`<b>${fresh.length} new request${fresh.length>1?'s':''}</b> from sales waiting to be picked up`);
+  if(unassigned.length) parts.push(`${unassigned.length} unassigned`);
   if(updates.length) parts.push(`${updates.length} with new messages/files`);
-  if(overdue.length) parts.push(`<b style="color:var(--red)">${overdue.length} past the needed-by date</b>`);
-  bn.className='req-banner'+(overdue.length||fresh.some(r=>r.priority==='Urgent')?' urgent':'');
+  if(stale.length) parts.push(`<b style="color:var(--red)">${stale.length} waiting 2+ days</b>`);
+  bn.className='req-banner'+(stale.length?' urgent':'');
   bn.innerHTML=`<span>📥 ${parts.join(' · ')}</span><div class="spacer"></div><button class="btn btn-sm" onclick="showPage('requests')">View requests</button>`;
 }
 
 function renderRequestsPage(){
   const q=($('reqSearch')?.value||'').trim().toLowerCase();
   const f=$('reqFilterSel')?.value||'open';
-  let rows=reqData.filter(r=>f==='all'||(f==='open'?REQ_OPEN.has(r.status):!REQ_OPEN.has(r.status)));
-  if(q) rows=rows.filter(r=>[r.ref,r.customer,r.title,r.requested_by,r.request_type,r.description].some(v=>(v||'').toLowerCase().includes(q)));
+  const meEmail=(getStoredSession()?.user?.email||'').toLowerCase();
+  let rows=reqData.filter(r=>{
+    const open=REQ_OPEN.has(r.status);
+    if(f==='all') return true;
+    if(f==='closed') return !open;
+    if(f==='mine') return open&&r.assigned_to===meEmail;
+    if(f==='unassigned') return open&&!r.assigned_to;
+    return open;
+  });
+  if(q) rows=rows.filter(r=>[r.ref,r.customer,r.title,r.requested_by,r.request_type,r.description,r.assigned_to,reqName(r.assigned_to)].some(v=>(v||'').toLowerCase().includes(q)));
   rows.sort((a,b)=>{
     if(f!=='closed'){
       const ao=REQ_OPEN.has(a.status), bo=REQ_OPEN.has(b.status);
       if(ao!==bo) return ao?-1:1;
       if((a.status==='New')!==(b.status==='New')) return a.status==='New'?-1:1;
-      if((a.priority==='Urgent')!==(b.priority==='Urgent')) return a.priority==='Urgent'?-1:1;
-      return (a.needed_by||'9999').localeCompare(b.needed_by||'9999');
+      if(!a.assigned_to!==!b.assigned_to) return !a.assigned_to?-1:1;
+      return a.created_at.localeCompare(b.created_at); // oldest first
     }
     return (b.completed_at||b.updated_at).localeCompare(a.completed_at||a.updated_at);
   });
@@ -6037,13 +6055,12 @@ function renderRequestsPage(){
     return `<tr class="rq-row${(r.status==='New'||r.buyer_unread)&&open?' unread':''}" onclick="openReqModal('${r.id}')">
       <td><span class="rq-ref">${esc(r.ref)}</span></td>
       <td>${esc(r.customer)}</td>
-      <td>${r.priority==='Urgent'?'<span class="rq-pill rq-urgent">🔥</span> ':''}${esc(r.title)}<div style="font-size:.74rem;color:var(--text3)">${esc(r.request_type)}${r.buyer_unread&&r.status!=='New'?' · <span style="color:var(--accent)">● new activity</span>':''}</div></td>
+      <td>${esc(r.title)}<div style="font-size:.74rem;color:var(--text3)">${esc(r.request_type)}${r.buyer_unread&&r.status!=='New'?' · <span style="color:var(--accent)">● new activity</span>':''}</div></td>
       <td>${esc(reqName(r.requested_by))}</td>
-      <td>${r.needed_by?fmtEntryDate(r.needed_by,true):'—'}</td>
-      <td>${open&&r.needed_by?daysArrivalBadge(r.needed_by):'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${r.assigned_to?esc(reqName(r.assigned_to)):'<span style="color:var(--amber)">Unassigned</span>'}</td>
       <td><span class="rq-pill ${reqStCls(r.status)}">${esc(r.status)}</span></td>
       <td>${items.length?items.map(i=>`<div style="font-size:.78rem">${esc(i.name)}</div>`).join(''):'<span style="color:var(--text3)">—</span>'}</td>
-      <td style="font-size:.8rem;color:var(--text3)">${reqDays(r.created_at)===0?'Today':reqDays(r.created_at)+'d ago'}</td>
+      <td style="font-size:.8rem;color:${r.status==='New'&&reqDays(r.created_at)>=2?'var(--red);font-weight:600':'var(--text3)'}">${reqDays(r.created_at)===0?'Today':reqDays(r.created_at)+'d ago'}</td>
     </tr>`;
   }).join('');
 }
@@ -6077,7 +6094,7 @@ async function refreshReqModal(){
   const me=(getStoredSession()?.user?.email||'').toLowerCase();
   const unmoved=_reqFiles.filter(f=>!f.sp_path);
   $('rqRef').textContent=r.ref;
-  $('rqPills').innerHTML=`<span class="rq-pill ${reqStCls(r.status)}">${esc(r.status)}</span>${r.priority==='Urgent'?' <span class="rq-pill rq-urgent">🔥 Urgent</span>':''}`;
+  $('rqPills').innerHTML=`<span class="rq-pill ${reqStCls(r.status)}">${esc(r.status)}</span>`;
   $('rqTitle').textContent=r.title;
   $('rqBody').innerHTML=`
     ${r.status==='Declined'?`<div class="rq-desc" style="border-color:rgba(239,68,68,.4)"><b>Declined</b>${r.decline_reason?' — '+esc(r.decline_reason):''}</div>`:''}
@@ -6085,11 +6102,19 @@ async function refreshReqModal(){
       <div><b>Customer</b><span>${esc(r.customer)}</span></div>
       <div><b>Type</b><span>${esc(r.request_type)}</span></div>
       <div><b>From</b><span>${esc(reqName(r.requested_by))}</span></div>
-      <div><b>Needed by</b><span>${r.needed_by?fmtEntryDate(r.needed_by,true)+(open?' '+daysArrivalBadge(r.needed_by):''):'—'}</span></div>
       <div><b>Received</b><span>${fmtEntryDate(r.created_at.slice(0,10),true)}</span></div>
-      ${r.quantity?`<div><b>Quantity</b><span>${esc(r.quantity)}</span></div>`:''}
-      ${r.target_price?`<div><b>Target price</b><span>${esc(r.target_price)}</span></div>`:''}
+      ${r.target_price?`<div><b>Ideal / target sales price</b><span>${esc(r.target_price)}</span></div>`:''}
       ${r.acknowledged_at?`<div><b>Picked up</b><span>${fmtEntryDate(r.acknowledged_at.slice(0,10),true)} · ${esc(reqName(r.acknowledged_by))}</span></div>`:''}
+    </div>
+    <div class="rq-sec" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="section-title" style="margin:0">Assigned to</div>
+      <select id="rqAssign" onchange="assignRequest('${id}',this.value)" style="font-size:.82rem;padding:5px 28px 5px 10px"${open?'':' disabled'}>
+        <option value="">— Unassigned —</option>
+        ${reqBuyers.map(b=>`<option value="${esc(b.email)}"${b.email===r.assigned_to?' selected':''}>${esc(b.display_name||reqName(b.email))}</option>`).join('')}
+        ${r.assigned_to&&!reqBuyers.some(b=>b.email===r.assigned_to)?`<option value="${esc(r.assigned_to)}" selected>${esc(reqName(r.assigned_to))}</option>`:''}
+      </select>
+      ${open&&r.assigned_to!==me?`<button class="btn btn-ghost btn-sm" onclick="assignRequest('${id}','${esc(me)}')">Assign to me</button>`:''}
+      <span style="font-size:.76rem;color:var(--text3)">${esc(reqName(r.requested_by))} sees who's on it</span>
     </div>
     ${r.description?`<div class="rq-desc">${esc(r.description)}</div>`:''}
     <div class="rq-sec">
@@ -6118,7 +6143,7 @@ async function refreshReqModal(){
   const m=$('rqMsgs'); if(m) m.scrollTop=m.scrollHeight;
   if(focusId==='rqMsgText'||focusId==='rqDeclineReason'){ const el=$(focusId); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }
   $('rqFooter').innerHTML=open?`
-      ${r.status==='New'?`<button class="btn btn-ghost" onclick="setReqStatus('${id}','Acknowledged')" title="Lets the rep know you've seen it">✓ Acknowledge</button>`:''}
+      ${r.status==='New'?`<button class="btn btn-ghost" onclick="setReqStatus('${id}','Acknowledged'${r.assigned_to?'':`,{assigned_to:'${esc(me)}'}`})" title="Lets the rep know you've seen it${r.assigned_to?'':' and assigns it to you'}">✓ Acknowledge${r.assigned_to?'':' & take it'}</button>`:''}
       <button class="btn btn-ghost" onclick="_reqDeclining=!_reqDeclining;refreshReqModal()">✕ Decline…</button>
       <div class="spacer"></div>
       <button class="btn${items.length?' btn-ghost':''}" onclick="createItemFromRequest('${id}')">➕ Create item card</button>
@@ -6164,6 +6189,14 @@ async function setReqStatus(id,status,extra){
     toast(`${reqData.find(r=>r.id===id)?.ref||'Request'} → ${status}`);
   }catch(e){ toast('Update failed: '+e.message,'error'); }
 }
+async function assignRequest(id,email){
+  try{
+    await SB.patch(`requests?id=eq.${id}`,{assigned_to:email||''});
+    await loadRequests();
+    if(reqOpenId===id) refreshReqModal();
+    toast(email?`Assigned to ${reqName(email)}`:'Unassigned');
+  }catch(e){ toast('Assign failed: '+e.message,'error'); }
+}
 function declineRequest(id){
   const reason=($('rqDeclineReason')?.value||'').trim();
   if(!reason){ toast('Add a reason so the rep knows why','error'); return; }
@@ -6191,9 +6224,8 @@ function createItemFromRequest(id){
   if([...$('add-category').options].some(o=>o.value===cat)) $('add-category').value=cat;
   $('add-stage').value=r.request_type==='Sample'?'Sampling':'Quoting';
   const bits=[`From sales request ${r.ref} (${reqName(r.requested_by)}) for ${r.customer}`];
-  if(r.needed_by) bits.push(`needed by ${fmtEntryDate(r.needed_by,true)}`);
-  if(r.quantity) bits.push(`qty ${r.quantity}`);
-  if(r.target_price) bits.push(`target ${r.target_price}`);
+  bits.push(r.request_type);
+  if(r.target_price) bits.push(`target sales price ${r.target_price}`);
   $('add-note').value=bits.join(' · ');
   $('addSaveBtn').textContent='Create item card';
   setTimeout(()=>$('add-name').focus(),50);

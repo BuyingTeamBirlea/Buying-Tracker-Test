@@ -179,7 +179,7 @@ body.light-mode .st-In-Progress{color:#7e22ce}body.light-mode .st-Complete{color
 }
 </style>
 </head>
-<body>
+<body class="light-mode">
 
 <!-- LOGIN -->
 <div class="login hidden" id="loginScreen">
@@ -254,25 +254,25 @@ body.light-mode .st-In-Progress{color:#7e22ce}body.light-mode .st-Complete{color
       <form class="form-card" id="reqForm" novalidate>
         <div class="form-grid">
           <div class="field">
+            <label>Email</label>
+            <input id="f-email" readonly tabindex="-1" style="opacity:.75;cursor:default">
+          </div>
+          <div class="field">
             <label>Customer <span class="req">*</span></label>
             <select id="f-customer">
               <option value="">Select…</option>
-              <option>Happy Beds</option><option>BHF</option><option>Wayfair</option><option value="__other">Other…</option>
+              <option>Happy Beds</option><option>BHF</option><option>Wayfair</option><option>NEXT</option>
+              <option>Marketplaces</option><option>MattressOnline</option><option>MattressNextDay</option>
             </select>
-            <input id="f-customer-other" class="hidden" placeholder="Customer name" style="margin-top:6px">
-          </div>
-          <div class="field">
-            <label>Needed by <span class="req">*</span></label>
-            <input type="date" id="f-needed">
-            <span class="hint">When the customer needs the answer from us.</span>
           </div>
           <div class="field full">
             <label>Request type <span class="req">*</span></label>
             <div class="chips" id="typeChips">
               <button type="button" class="chip" data-v="Quote">💷 Quote</button>
               <button type="button" class="chip" data-v="Sample">📦 Sample</button>
-              <button type="button" class="chip" data-v="Spec / Info">📋 Spec / Info</button>
-              <button type="button" class="chip" data-v="Other">✳️ Other</button>
+              <button type="button" class="chip" data-v="Spec / Info">📋 Spec/Info</button>
+              <button type="button" class="chip" data-v="BC Set Up">🧾 BC Set Up</button>
+              <button type="button" class="chip" data-v="PIM Assistance">🖥️ PIM Assistance</button>
             </div>
           </div>
           <div class="field full">
@@ -283,29 +283,17 @@ body.light-mode .st-In-Progress{color:#7e22ce}body.light-mode .st-Complete{color
             <label>Details</label>
             <textarea id="f-desc" placeholder="Sizes, colours, fabrics, materials, competitor reference, anything the customer said…"></textarea>
           </div>
-          <div class="field">
-            <label>Quantity / volumes</label>
-            <input id="f-qty" placeholder="e.g. 200 pcs per size, 4 x 40HQ per year">
-          </div>
-          <div class="field">
-            <label>Target price</label>
-            <input id="f-price" placeholder="e.g. £180 landed, or retail £499">
-          </div>
           <div class="field full">
-            <label>Priority</label>
-            <div class="chips" id="prioChips">
-              <button type="button" class="chip active" data-v="Normal">Normal</button>
-              <button type="button" class="chip urgent-chip" data-v="Urgent">🔥 Urgent</button>
-            </div>
+            <label>Ideal / target sales price <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label>
+            <input id="f-price" placeholder="e.g. £499 retail, or £180 to us">
           </div>
           <div class="field full">
             <label>Attachments</label>
             <div class="drop" id="drop">
               📎 Drop photos, videos or documents here, or tap to choose
-              <small>Images, MP4/MOV, PDF, Word, Excel, PowerPoint · up to 50 MB each</small>
+              <small>Any file type · up to 50 MB each</small>
             </div>
-            <input type="file" id="f-files" multiple class="hidden"
-              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.ppt,.pptx,.txt">
+            <input type="file" id="f-files" multiple class="hidden">
             <div class="file-rows" id="fileRows"></div>
           </div>
         </div>
@@ -372,8 +360,9 @@ function fmtSize(b){ if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toF
 function toast(msg,type){ const el=document.createElement('div'); el.className='toast'+(type==='error'?' error':''); el.textContent=msg; $('toasts').appendChild(el); setTimeout(()=>el.remove(),3800); }
 
 // ═══ THEME ═══
-function loadTheme(){ try{ if(localStorage.getItem('rdt_theme')==='light') document.body.classList.add('light-mode'); }catch(e){} }
-function toggleTheme(){ const l=document.body.classList.toggle('light-mode'); try{ localStorage.setItem('rdt_theme',l?'light':'dark'); }catch(e){} }
+// Light by default; choice remembered per device (separate from the tracker's setting)
+function loadTheme(){ let t='light'; try{ t=localStorage.getItem('req_theme')||'light'; }catch(e){} document.body.classList.toggle('light-mode',t!=='dark'); }
+function toggleTheme(){ const l=document.body.classList.toggle('light-mode'); try{ localStorage.setItem('req_theme',l?'light':'dark'); }catch(e){} }
 loadTheme();
 
 // ═══ AUTH ═══
@@ -534,6 +523,10 @@ document.querySelectorAll('#filterSeg button').forEach(b=>b.addEventListener('cl
   filter=b.dataset.f; document.querySelectorAll('#filterSeg button').forEach(x=>x.classList.toggle('active',x===b)); renderList();
 }));
 const stCls=s=>'st-'+s.replace(/\s+/g,'-');
+function assigneeHTML(r){
+  if(!OPEN_ST.has(r.status)&&!r.assigned_to) return '';
+  return r.assigned_to?`<span>👤 ${esc(nameOf(r.assigned_to))} is on it</span>`:`<span style="color:var(--amber)">Not assigned yet</span>`;
+}
 function dueHTML(r){
   if(!r.needed_by) return '';
   const d=daysUntil(r.needed_by), open=OPEN_ST.has(r.status);
@@ -550,9 +543,9 @@ function renderList(){
     const items=progress.filter(p=>p.request_id===r.id);
     return `<div class="req-card${r.rep_unread?' unread':''}" onclick="openDetail('${r.id}')">
       <div>
-        <div class="req-top"><span class="ref">${esc(r.ref)}</span>${r.priority==='Urgent'?'<span class="pill urgent">🔥 Urgent</span>':''}</div>
+        <div class="req-top"><span class="ref">${esc(r.ref)}</span></div>
         <div class="req-title">${esc(r.title)}</div>
-        <div class="req-meta"><span>${esc(r.customer)}</span><span>${esc(r.request_type)}</span>${dueHTML(r)}</div>
+        <div class="req-meta"><span>${esc(r.customer)}</span><span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}</span>${assigneeHTML(r)}</div>
       </div>
       <div class="req-side">
         <span class="pill ${stCls(r.status)}">${esc(r.status)}</span>
@@ -612,7 +605,7 @@ async function renderDetail(id,quiet){
   const draft=$('msgText')?.value||'';
   const items=progress.filter(p=>p.request_id===id);
   $('dRef').textContent=r.ref;
-  $('dPills').innerHTML=`<span class="pill ${stCls(r.status)}">${esc(r.status)}</span> ${r.priority==='Urgent'?'<span class="pill urgent">🔥 Urgent</span>':''}`;
+  $('dPills').innerHTML=`<span class="pill ${stCls(r.status)}">${esc(r.status)}</span>`;
   $('dTitle').textContent=r.title;
   $('dBody').innerHTML=`
     ${r.status==='Declined'?`<div class="decline"><b>Declined</b>${r.decline_reason?' — '+esc(r.decline_reason):''}</div>`:''}
@@ -625,10 +618,9 @@ async function renderDetail(id,quiet){
       <div class="kv">
         <div><b>Customer</b><span>${esc(r.customer)}</span></div>
         <div><b>Type</b><span>${esc(r.request_type)}</span></div>
-        <div><b>Needed by</b><span>${fmtDate(r.needed_by)}</span></div>
         <div><b>Sent</b><span>${fmtDate(r.created_at)}</span></div>
-        ${r.quantity?`<div><b>Quantity</b><span>${esc(r.quantity)}</span></div>`:''}
-        ${r.target_price?`<div><b>Target price</b><span>${esc(r.target_price)}</span></div>`:''}
+        <div><b>Being handled by</b><span>${r.assigned_to?esc(nameOf(r.assigned_to)):'Not assigned yet'}</span></div>
+        ${r.target_price?`<div><b>Ideal / target sales price</b><span>${esc(r.target_price)}</span></div>`:''}
         ${r.acknowledged_at?`<div><b>Picked up</b><span>${fmtDate(r.acknowledged_at)}</span></div>`:''}
       </div>
       ${r.description?`<div class="desc" style="margin-top:10px">${esc(r.description)}</div>`:''}
@@ -637,7 +629,7 @@ async function renderDetail(id,quiet){
       <div class="sec-title">Attachments (${detailFiles.length})</div>
       <div class="thumbs" id="dThumbs">${detailFiles.map((f,i)=>thumbHTML(f,i)).join('')}</div>
       ${OPEN_ST.has(r.status)?`<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="$('addFiles').click()">📎 Add more files</button>
-      <input type="file" id="addFiles" multiple class="hidden" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.ppt,.pptx,.txt" onchange="addMoreFiles(event,'${id}')">`:''}
+      <input type="file" id="addFiles" multiple class="hidden" onchange="addMoreFiles(event,'${id}')">`:''}
     </div>
     <div>
       <div class="sec-title">Messages with buying</div>
@@ -705,20 +697,16 @@ async function uploadOne(reqId,f){
 }
 
 // ═══ FORM ═══
-let pending=[], reqType='', priority='Normal';
-function showForm(){ $('listView').classList.add('hidden'); $('formView').classList.remove('hidden'); window.scrollTo(0,0); }
+let pending=[], reqType='';
+function showForm(){ $('f-email').value=me; $('listView').classList.add('hidden'); $('formView').classList.remove('hidden'); window.scrollTo(0,0); }
 function showList(){ $('formView').classList.add('hidden'); $('listView').classList.remove('hidden'); }
 function resetForm(){
-  $('reqForm').reset(); pending=[]; reqType=''; priority='Normal'; renderPending();
-  $('f-customer-other').classList.add('hidden'); $('formMsg').textContent='';
+  $('reqForm').reset(); pending=[]; reqType=''; renderPending();
+  $('formMsg').textContent='';
   document.querySelectorAll('#typeChips .chip').forEach(c=>c.classList.remove('active'));
-  document.querySelectorAll('#prioChips .chip').forEach(c=>c.classList.toggle('active',c.dataset.v==='Normal'));
   $('submitBtn').disabled=false; $('submitBtn').textContent='Send to buying';
 }
-$('f-needed').min=todayISO();
-$('f-customer').addEventListener('change',()=>{ const o=$('f-customer').value==='__other'; $('f-customer-other').classList.toggle('hidden',!o); if(o) $('f-customer-other').focus(); });
 document.querySelectorAll('#typeChips .chip').forEach(c=>c.addEventListener('click',()=>{ reqType=c.dataset.v; document.querySelectorAll('#typeChips .chip').forEach(x=>x.classList.toggle('active',x===c)); }));
-document.querySelectorAll('#prioChips .chip').forEach(c=>c.addEventListener('click',()=>{ priority=c.dataset.v; document.querySelectorAll('#prioChips .chip').forEach(x=>x.classList.toggle('active',x===c)); }));
 const drop=$('drop');
 drop.addEventListener('click',()=>$('f-files').click());
 drop.addEventListener('dragover',e=>{ e.preventDefault(); drop.classList.add('over'); });
@@ -734,16 +722,15 @@ function renderPending(){
 }
 $('reqForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  const cust=$('f-customer').value==='__other'?$('f-customer-other').value.trim():$('f-customer').value;
-  const title=$('f-title').value.trim(), needed=$('f-needed').value;
-  const miss=[!cust&&'customer',!reqType&&'request type',!title&&'title',!needed&&'needed-by date'].filter(Boolean);
+  const cust=$('f-customer').value;
+  const title=$('f-title').value.trim();
+  const miss=[!cust&&'customer',!reqType&&'request type',!title&&'title'].filter(Boolean);
   if(miss.length){ $('formMsg').textContent='Please add: '+miss.join(', '); return; }
-  if(needed<todayISO()){ $('formMsg').textContent='Needed-by date is in the past.'; return; }
   $('formMsg').textContent=''; const btn=$('submitBtn'); btn.disabled=true; btn.textContent='Sending…';
   let row;
   try{
-    [row]=await SB.post('requests',{customer:cust,request_type:reqType,title,needed_by:needed,priority,
-      description:$('f-desc').value.trim(),quantity:$('f-qty').value.trim(),target_price:$('f-price').value.trim(),requested_by:me});
+    [row]=await SB.post('requests',{customer:cust,request_type:reqType,title,
+      description:$('f-desc').value.trim(),target_price:$('f-price').value.trim(),requested_by:me});
   }catch(err){ $('formMsg').textContent='Could not send: '+err.message; btn.disabled=false; btn.textContent='Send to buying'; return; }
   let failed=0;
   for(let i=0;i<pending.length;i++){
