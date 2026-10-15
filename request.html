@@ -47,7 +47,8 @@ button,input,select,textarea{font-family:inherit}
 .btn-sm{padding:6px 11px;font-size:.8rem}
 
 /* layout */
-.main{max-width:980px;margin:0 auto;padding:24px 20px 60px}
+.main{max-width:1240px;margin:0 auto;padding:24px 20px 60px}
+#reqForm{max-width:940px}
 .page-head{display:flex;align-items:flex-end;gap:12px;margin-bottom:18px;flex-wrap:wrap}
 .page-head h1{font-size:1.35rem;font-weight:600}
 .page-head p{color:var(--text3);font-size:.85rem;margin-top:3px}
@@ -112,12 +113,14 @@ body.light-mode .st-In-Progress{color:#7e22ce}body.light-mode .st-Complete{color
 .form-msg{font-size:.85rem;color:var(--red)}
 
 /* type picker */
-.type-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
-.type-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;text-align:left;color:var(--text);transition:border-color .15s,transform .15s;display:flex;flex-direction:column;gap:6px}
-.type-card:hover{border-color:var(--accent);transform:translateY(-1px)}
-.type-card .ti{font-size:1.6rem}
-.type-card b{font-size:.98rem;font-weight:600}
-.type-card span{font-size:.8rem;color:var(--text3);line-height:1.4}
+.type-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+.type-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:28px 22px;min-height:230px;cursor:pointer;text-align:left;color:var(--text);transition:border-color .15s,transform .15s,box-shadow .15s;display:flex;flex-direction:column;gap:10px}
+.type-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(79,110,247,.12)}
+.type-card .ti{font-size:2.6rem;line-height:1;margin-bottom:8px}
+.type-card b{font-size:1.1rem;font-weight:600;line-height:1.3}
+.type-card span{font-size:.88rem;color:var(--text3);line-height:1.45}
+@media(max-width:1100px){.type-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.type-grid{grid-template-columns:1fr 1fr}.type-card{min-height:170px;padding:20px 16px}}
 .type-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)}
 .type-head .ti{font-size:1.4rem}
 .type-head b{font-size:1rem}
