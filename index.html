@@ -797,7 +797,7 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
 <div id="pageRequests" class="page">
   <div class="page-header">
     <button class="page-back" onclick="showPage('main')">← Back to Buying Tracker</button>
-    <div class="page-title">📥 Requests from Sales</div>
+    <div class="page-title">📥 Requests</div>
     <div class="page-sub" id="reqPageSub"></div>
   </div>
   <div class="main">
@@ -824,7 +824,7 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
         </thead>
         <tbody id="reqBody"></tbody>
       </table>
-      <div id="reqEmpty" class="empty-state hidden"><h3>No requests</h3><p>Requests sales reps send from the request page appear here</p></div>
+      <div id="reqEmpty" class="empty-state hidden"><h3>No requests</h3><p>Requests from the Request page appear here</p></div>
     </div>
   </div>
 </div>
@@ -5970,7 +5970,7 @@ const reqBuyers=[ // who requests can be assigned to, in dropdown order
   {email:'michael.prime@birlea.com',display_name:'Michael'}
 ];
 // Request type → tracker category when there's no customer to go on
-const REQ_TYPE_CATEGORY={'Customer Service':'Customer Service Enquiries','BC Set Up':'Miscellaneous','PIM Assistance':'Miscellaneous'};
+const REQ_TYPE_CATEGORY={'Customer Service':'Customer Service Enquiries','Margin Sheets':'Miscellaneous','BC Set Up':'Miscellaneous','PIM Assistance':'Miscellaneous'};
 // Starting status per request type (anything not listed → Quoting)
 const REQ_TYPE_STAGE={'Customer Service':'Awaiting Response','Margin Sheets':'To-Do','BC Set Up':'To-Do','PIM Assistance':'To-Do'};
 const reqTitleText=r=>r.request_type==='Customer Service'?`SKU ${r.title}${r.cs_ticket?' · '+r.cs_ticket:''}`:r.title;
@@ -6248,7 +6248,7 @@ function createItemFromRequest(id){
   openAddModal();
   _reqConvert=id;
   $('add-name').value=r.request_type==='Customer Service'?`${r.title}${r.cs_ticket?' - '+r.cs_ticket:''}`:r.title;
-  // Category: fixed by type (CS / BC / PIM), else by customer (NPD); Margin Sheets left for you to pick
+  // Category: fixed by type (CS / Margin Sheets / BC / PIM), else by customer (NPD)
   const cat=REQ_TYPE_CATEGORY[r.request_type]||(r.customer?REQ_CUSTOMER_CATEGORY[r.customer.trim().toLowerCase()]||'Exclusive - Other':'');
   if(cat&&[...$('add-category').options].some(o=>o.value===cat)) $('add-category').value=cat;
   $('add-stage').value=REQ_TYPE_STAGE[r.request_type]||'Quoting';
