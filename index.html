@@ -5961,7 +5961,14 @@ const REQ_OPEN=new Set(['New','Acknowledged','In Progress']);
 const REQ_MEDIA_EXTS=new Set(['jpg','jpeg','png','webp','mp4']); // what the Media SharePoint target accepts
 const REQ_CUSTOMER_CATEGORY={'happy beds':'Exclusive - Happy Beds','bhf':'Exclusive - BHF','wayfair':'Exclusive - Wayfair',
   'next':'Exclusive - NEXT','marketplaces':'Exclusive - Marketplaces','mattressonline':'Exclusive - MattressOnline','mattressnextday':'Exclusive - MattressNextDay'};
-let reqBuyers=[]; // [{email,display_name}] for the Assign dropdown
+const reqBuyers=[ // who requests can be assigned to, in dropdown order
+  {email:'syrus.cripps@birlea.com',display_name:'Syrus'},
+  {email:'bethany.herron@birlea.com',display_name:'Beth'},
+  {email:'michael.prime@birlea.com',display_name:'Michael'}
+];
+// Request type → tracker category when there's no customer to go on
+const REQ_TYPE_CATEGORY={'Customer Service':'Customer Service Enquiries','Margin Sheets':'Miscellaneous','BC Set Up':'Miscellaneous','PIM Assistance':'Miscellaneous'};
+const reqTitleText=r=>r.request_type==='Customer Service'?`SKU ${r.title}${r.cs_ticket?' · '+r.cs_ticket:''}`:r.title;
 let reqData=[], reqLinks=[], reqOpenId=null, _reqConvert=null, _reqAvailable=true;
 let _lastKnownReqTs=null, _reqKnownIds=null, _reqFiles=[], _reqMsgs=[], _reqBlobs={}, _reqDeclining=false;
 
@@ -5976,7 +5983,6 @@ async function loadRequests(silent=false){
       SB.get('requests?select=*&order=created_at.desc&limit=1000'),
       SB.get('request_items?select=request_id,item_id,created_at&order=created_at.asc')
     ]);
-    if(!reqBuyers.length) reqBuyers=await SB.get("app_users?role=eq.buyer&select=email,display_name&order=display_name").catch(()=>[]);
     reqData=rows||[]; reqLinks=links||[];
     _lastKnownReqTs=reqData.reduce((m,r)=>r.updated_at>m?r.updated_at:m,'');
     // Toast for anything new that arrived while the tracker was open
@@ -6035,7 +6041,7 @@ function renderRequestsPage(){
     if(f==='unassigned') return open&&!r.assigned_to;
     return open;
   });
-  if(q) rows=rows.filter(r=>[r.ref,r.customer,r.title,r.requested_by,r.request_type,r.description,r.assigned_to,reqName(r.assigned_to)].some(v=>(v||'').toLowerCase().includes(q)));
+  if(q) rows=rows.filter(r=>[r.ref,r.customer,r.title,r.cs_ticket,r.requested_by,r.request_type,r.description,r.assigned_to,reqName(r.assigned_to)].some(v=>(v||'').toLowerCase().includes(q)));
   rows.sort((a,b)=>{
     if(f!=='closed'){
       const ao=REQ_OPEN.has(a.status), bo=REQ_OPEN.has(b.status);
@@ -6054,8 +6060,8 @@ function renderRequestsPage(){
     const open=REQ_OPEN.has(r.status);
     return `<tr class="rq-row${(r.status==='New'||r.buyer_unread)&&open?' unread':''}" onclick="openReqModal('${r.id}')">
       <td><span class="rq-ref">${esc(r.ref)}</span></td>
-      <td>${esc(r.customer)}</td>
-      <td>${esc(r.title)}<div style="font-size:.74rem;color:var(--text3)">${esc(r.request_type)}${r.buyer_unread&&r.status!=='New'?' · <span style="color:var(--accent)">● new activity</span>':''}</div></td>
+      <td>${r.customer?esc(r.customer):'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${esc(reqTitleText(r))}<div style="font-size:.74rem;color:var(--text3)">${esc(r.request_type)}${r.buyer_unread&&r.status!=='New'?' · <span style="color:var(--accent)">● new activity</span>':''}</div></td>
       <td>${esc(reqName(r.requested_by))}</td>
       <td>${r.assigned_to?esc(reqName(r.assigned_to)):'<span style="color:var(--amber)">Unassigned</span>'}</td>
       <td><span class="rq-pill ${reqStCls(r.status)}">${esc(r.status)}</span></td>
@@ -6095,12 +6101,13 @@ async function refreshReqModal(){
   const unmoved=_reqFiles.filter(f=>!f.sp_path);
   $('rqRef').textContent=r.ref;
   $('rqPills').innerHTML=`<span class="rq-pill ${reqStCls(r.status)}">${esc(r.status)}</span>`;
-  $('rqTitle').textContent=r.title;
+  $('rqTitle').textContent=reqTitleText(r);
   $('rqBody').innerHTML=`
     ${r.status==='Declined'?`<div class="rq-desc" style="border-color:rgba(239,68,68,.4)"><b>Declined</b>${r.decline_reason?' — '+esc(r.decline_reason):''}</div>`:''}
     <div class="rq-kv">
-      <div><b>Customer</b><span>${esc(r.customer)}</span></div>
+      ${r.customer?`<div><b>Customer</b><span>${esc(r.customer)}</span></div>`:''}
       <div><b>Type</b><span>${esc(r.request_type)}</span></div>
+      ${r.request_type==='Customer Service'?`<div><b>SKU</b><span>${esc(r.title)}</span></div><div><b>CS Ticket</b><span>${esc(r.cs_ticket||'—')}</span></div>`:''}
       <div><b>From</b><span>${esc(reqName(r.requested_by))}</span></div>
       <div><b>Received</b><span>${fmtEntryDate(r.created_at.slice(0,10),true)}</span></div>
       ${r.target_price?`<div><b>Ideal / target sales price</b><span>${esc(r.target_price)}</span></div>`:''}
@@ -6116,7 +6123,7 @@ async function refreshReqModal(){
       ${open&&r.assigned_to!==me?`<button class="btn btn-ghost btn-sm" onclick="assignRequest('${id}','${esc(me)}')">Assign to me</button>`:''}
       <span style="font-size:.76rem;color:var(--text3)">${esc(reqName(r.requested_by))} sees who's on it</span>
     </div>
-    ${r.description?`<div class="rq-desc">${esc(r.description)}</div>`:''}
+    ${r.description?`<div class="rq-desc">${r.request_type==='Customer Service'?'<b>Query</b>\n':''}${esc(r.description)}</div>`:''}
     <div class="rq-sec">
       <div class="section-title">Item cards (${items.length})</div>
       ${items.length?`<div class="rq-links">${items.map(i=>`<div class="rq-link" onclick="closeReqModal();openDetail('${i.id}')"><span class="rq-ref">${esc(i.refCode||'')}</span><span style="flex:1">${esc(i.name)}</span><span class="badge ${STAGE_CLS[i.stage]||''}">${esc(i.stage)}</span></div>`).join('')}</div>`
@@ -6136,7 +6143,6 @@ async function refreshReqModal(){
       <div class="section-title">Messages with ${esc(reqName(r.requested_by))}</div>
       <div class="rq-msgs" id="rqMsgs">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}">${esc(m.body)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):'<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on the rep\'s request page.</div>'}</div>
       <div class="rq-reply"><textarea id="rqMsgText" placeholder="Reply to ${esc(reqName(r.requested_by))}…"></textarea><button class="btn" onclick="sendReqMsg('${id}')">Send</button></div>
-      ${_reqDeclining?`<div class="rq-decline"><input id="rqDeclineReason" placeholder="Reason (the rep will see this)"><button class="btn btn-red" onclick="declineRequest('${id}')">Decline request</button></div>`:''}
     </div>`;
   if(draft) $('rqMsgText').value=draft;
   if(declineDraft&&$('rqDeclineReason')) $('rqDeclineReason').value=declineDraft;
@@ -6144,7 +6150,6 @@ async function refreshReqModal(){
   if(focusId==='rqMsgText'||focusId==='rqDeclineReason'){ const el=$(focusId); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }
   $('rqFooter').innerHTML=open?`
       ${r.status==='New'?`<button class="btn btn-ghost" onclick="setReqStatus('${id}','Acknowledged'${r.assigned_to?'':`,{assigned_to:'${esc(me)}'}`})" title="Lets the rep know you've seen it${r.assigned_to?'':' and assigns it to you'}">✓ Acknowledge${r.assigned_to?'':' & take it'}</button>`:''}
-      <button class="btn btn-ghost" onclick="_reqDeclining=!_reqDeclining;refreshReqModal()">✕ Decline…</button>
       <div class="spacer"></div>
       <button class="btn${items.length?' btn-ghost':''}" onclick="createItemFromRequest('${id}')">➕ Create item card</button>
       ${items.length?`<button class="btn" onclick="completeRequest('${id}')" title="Removes it from the open list">✔ Mark complete</button>`:''}`
@@ -6219,11 +6224,12 @@ function createItemFromRequest(id){
   closeReqModal();
   openAddModal();
   _reqConvert=id;
-  $('add-name').value=r.title;
-  const cat=REQ_CUSTOMER_CATEGORY[(r.customer||'').trim().toLowerCase()]||'Exclusive - Other';
+  $('add-name').value=r.request_type==='Customer Service'?`${r.title}${r.cs_ticket?' - '+r.cs_ticket:''}`:r.title;
+  const cat=REQ_TYPE_CATEGORY[r.request_type]||REQ_CUSTOMER_CATEGORY[(r.customer||'').trim().toLowerCase()]||'Exclusive - Other';
   if([...$('add-category').options].some(o=>o.value===cat)) $('add-category').value=cat;
   $('add-stage').value=r.request_type==='Sample'?'Sampling':'Quoting';
-  const bits=[`From sales request ${r.ref} (${reqName(r.requested_by)}) for ${r.customer}`];
+  const bits=[`From sales request ${r.ref} (${reqName(r.requested_by)})${r.customer?' for '+r.customer:''}`];
+  if(r.cs_ticket) bits.push(`CS ticket ${r.cs_ticket}`);
   bits.push(r.request_type);
   if(r.target_price) bits.push(`target sales price ${r.target_price}`);
   $('add-note').value=bits.join(' · ');

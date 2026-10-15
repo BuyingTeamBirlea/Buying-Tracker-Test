@@ -111,6 +111,34 @@ body.light-mode .st-In-Progress{color:#7e22ce}body.light-mode .st-Complete{color
 .form-foot .spacer{flex:1}
 .form-msg{font-size:.85rem;color:var(--red)}
 
+/* type picker */
+.type-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.type-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;text-align:left;color:var(--text);transition:border-color .15s,transform .15s;display:flex;flex-direction:column;gap:6px}
+.type-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.type-card .ti{font-size:1.6rem}
+.type-card b{font-size:.98rem;font-weight:600}
+.type-card span{font-size:.8rem;color:var(--text3);line-height:1.4}
+.type-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.type-head .ti{font-size:1.4rem}
+.type-head b{font-size:1rem}
+.link{background:none;border:none;color:var(--accent);cursor:pointer;font-size:.82rem;text-decoration:underline;margin-left:auto}
+/* tracker status colours */
+.stg{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:.74rem;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.stg-quoting{background:rgba(249,115,22,.14);color:#fb923c;border-color:rgba(249,115,22,.35)}
+.stg-sampling{background:rgba(168,85,247,.14);color:#c084fc;border-color:rgba(168,85,247,.35)}
+.stg-jake,.stg-cancelled{background:rgba(239,68,68,.1);color:#f87171;border-color:rgba(239,68,68,.25)}
+.stg-qc{background:rgba(34,197,94,.13);color:#4ade80;border-color:rgba(34,197,94,.35)}
+.stg-spec{background:rgba(56,189,248,.14);color:#38bdf8;border-color:rgba(56,189,248,.35)}
+.stg-resp{background:rgba(236,72,153,.14);color:#f472b6;border-color:rgba(236,72,153,.35)}
+.stg-loaded{background:rgba(148,163,184,.14);color:#94a3b8;border-color:rgba(148,163,184,.3)}
+.stg-hold{background:rgba(100,116,139,.12);color:#7f8ea3;border-color:rgba(100,116,139,.25)}
+body.light-mode .stg-quoting{color:#c2410c}body.light-mode .stg-sampling{color:#7e22ce}
+body.light-mode .stg-jake,body.light-mode .stg-cancelled{color:#b91c1c}body.light-mode .stg-qc{color:#15803d}
+body.light-mode .stg-spec{color:#0369a1}body.light-mode .stg-resp{color:#be185d}
+body.light-mode .stg-loaded{color:#475569}body.light-mode .stg-hold{color:#475569}
+.latest{margin-top:10px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:9px 11px;font-size:.86rem;line-height:1.45;white-space:pre-wrap}
+.latest small{display:block;font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:3px}
+
 /* detail drawer */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:80;display:flex;justify-content:flex-end;backdrop-filter:blur(3px)}
 .drawer{background:var(--bg2);width:640px;max-width:100vw;height:100%;display:flex;flex-direction:column;border-left:1px solid var(--border2);box-shadow:var(--shadow)}
@@ -250,14 +278,25 @@ body.light-mode .st-In-Progress{color:#7e22ce}body.light-mode .st-Complete{color
           <h1>New request</h1>
           <p>Everything the buying team needs in one place. It lands straight in the Buying Tracker.</p>
         </div>
+        <div class="spacer"></div>
+        <button type="button" class="btn btn-ghost" onclick="showList()">Cancel</button>
       </div>
-      <form class="form-card" id="reqForm" novalidate>
+
+      <!-- Step 1: what kind of request -->
+      <div id="typeStep">
+        <div class="type-grid" id="typeGrid"></div>
+      </div>
+
+      <!-- Step 2: details for that type -->
+      <form class="form-card hidden" id="reqForm" novalidate>
+        <div class="type-head"><span class="ti" id="tIcon"></span><b id="tName"></b>
+          <button type="button" class="link" onclick="pickType('')">Change type</button></div>
         <div class="form-grid">
-          <div class="field">
+          <div class="field" data-f="email">
             <label>Email</label>
             <input id="f-email" readonly tabindex="-1" style="opacity:.75;cursor:default">
           </div>
-          <div class="field">
+          <div class="field" data-f="customer">
             <label>Customer <span class="req">*</span></label>
             <select id="f-customer">
               <option value="">Select…</option>
@@ -265,29 +304,23 @@ body.light-mode .st-In-Progress{color:#7e22ce}body.light-mode .st-Complete{color
               <option>Marketplaces</option><option>MattressOnline</option><option>MattressNextDay</option>
             </select>
           </div>
-          <div class="field full">
-            <label>Request type <span class="req">*</span></label>
-            <div class="chips" id="typeChips">
-              <button type="button" class="chip" data-v="Quote">💷 Quote</button>
-              <button type="button" class="chip" data-v="Sample">📦 Sample</button>
-              <button type="button" class="chip" data-v="Spec / Info">📋 Spec/Info</button>
-              <button type="button" class="chip" data-v="BC Set Up">🧾 BC Set Up</button>
-              <button type="button" class="chip" data-v="PIM Assistance">🖥️ PIM Assistance</button>
-            </div>
+          <div class="field full" data-f="title">
+            <label><span id="lTitle">Title</span> <span class="req">*</span></label>
+            <input id="f-title" maxlength="140">
           </div>
-          <div class="field full">
-            <label>Title <span class="req">*</span></label>
-            <input id="f-title" maxlength="140" placeholder="e.g. Upholstered ottoman bed — 3 sizes">
+          <div class="field full" data-f="cs">
+            <label>CS Ticket <span class="req">*</span></label>
+            <input id="f-cs" maxlength="60" placeholder="e.g. CS-104582">
           </div>
-          <div class="field full">
-            <label>Details</label>
-            <textarea id="f-desc" placeholder="Sizes, colours, fabrics, materials, competitor reference, anything the customer said…"></textarea>
+          <div class="field full" data-f="desc">
+            <label><span id="lDesc">Details</span><span class="req" id="rDesc"> *</span></label>
+            <textarea id="f-desc"></textarea>
           </div>
-          <div class="field full">
+          <div class="field full" data-f="price">
             <label>Ideal / target sales price <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label>
             <input id="f-price" placeholder="e.g. £499 retail, or £180 to us">
           </div>
-          <div class="field full">
+          <div class="field full" data-f="files">
             <label>Attachments</label>
             <div class="drop" id="drop">
               📎 Drop photos, videos or documents here, or tap to choose
@@ -523,6 +556,7 @@ document.querySelectorAll('#filterSeg button').forEach(b=>b.addEventListener('cl
   filter=b.dataset.f; document.querySelectorAll('#filterSeg button').forEach(x=>x.classList.toggle('active',x===b)); renderList();
 }));
 const stCls=s=>'st-'+s.replace(/\s+/g,'-');
+const reqTitle=r=>r.request_type==='Customer Service'?`SKU ${esc(r.title)}${r.cs_ticket?' · '+esc(r.cs_ticket):''}`:esc(r.title);
 function assigneeHTML(r){
   if(!OPEN_ST.has(r.status)&&!r.assigned_to) return '';
   return r.assigned_to?`<span>👤 ${esc(nameOf(r.assigned_to))} is on it</span>`:`<span style="color:var(--amber)">Not assigned yet</span>`;
@@ -544,39 +578,32 @@ function renderList(){
     return `<div class="req-card${r.rep_unread?' unread':''}" onclick="openDetail('${r.id}')">
       <div>
         <div class="req-top"><span class="ref">${esc(r.ref)}</span></div>
-        <div class="req-title">${esc(r.title)}</div>
-        <div class="req-meta"><span>${esc(r.customer)}</span><span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}</span>${assigneeHTML(r)}</div>
+        <div class="req-title">${reqTitle(r)}</div>
+        <div class="req-meta">${r.customer?`<span>${esc(r.customer)}</span>`:''}<span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}</span>${assigneeHTML(r)}</div>
       </div>
       <div class="req-side">
         <span class="pill ${stCls(r.status)}">${esc(r.status)}</span>
         ${r.rep_unread?'<span class="new-dot">● Update</span>':''}
       </div>
-      ${items.length?`<div class="mini-items">${items.map(i=>`<span class="mini-item">${esc(i.name)} · ${esc(stageLabel(i.stage))}</span>`).join('')}</div>`:''}
+      ${items.length?`<div class="mini-items">${items.map(i=>`<span class="mini-item">${esc(i.name)}</span>${stagePill(i.stage)}`).join('')}</div>`:''}
     </div>`;
   }).join('');
 }
 
 // ═══ PROGRESS ═══
-// Tracker statuses → wording for sales, plus a 5-step bar
-const STAGE_LABEL={'Quoting':'Quoting','Sampling':'Sampling','Awaiting Jake Approval':'Internal approval',
-  'Awaiting Spec Forms':'Specs in progress','Awaiting Response':'Waiting on supplier','QC':'Quality check',
-  'Loaded / Shipped':'Shipped','On Hold':'On hold','Cancelled / Dropped':'Cancelled'};
-const STEP_OF={'Quoting':0,'Awaiting Response':0,'Sampling':1,'Awaiting Spec Forms':1,'Awaiting Jake Approval':2,'QC':3,'Loaded / Shipped':4};
-const STEPS=['Quoting','Sampling','Approval','QC','Shipped'];
-const stageLabel=s=>STAGE_LABEL[s]||s||'—';
+// Same statuses and colours as the Buying Tracker
+const STAGE_CLASS={'Quoting':'stg-quoting','Sampling':'stg-sampling','Awaiting Jake Approval':'stg-jake','QC':'stg-qc',
+  'Awaiting Spec Forms':'stg-spec','Awaiting Response':'stg-resp','Loaded / Shipped':'stg-loaded','On Hold':'stg-hold','Cancelled / Dropped':'stg-cancelled'};
+const stagePill=s=>`<span class="stg ${STAGE_CLASS[s]||'stg-hold'}">${esc(s||'—')}</span>`;
 function progressHTML(p){
-  const cur=STEP_OF[p.stage];
-  const bar=cur==null?'':`<div class="steps">${STEPS.map((s,i)=>`<div class="step ${i<cur?'done':i===cur?'cur':''}"><i></i>${s}</div>`).join('')}</div>`;
-  const flag=cur==null?`<div class="prog-flag">${esc(stageLabel(p.stage))}</div>`:'';
   return `<div class="prog">
-    <div class="prog-head"><b>${esc(p.name)}</b><span class="ref">${esc(p.ref_code||'')}</span><span class="pill st-In-Progress" style="margin-left:auto">${esc(stageLabel(p.stage))}</span></div>
-    ${bar}${flag}
-    <div class="prog-foot">
-      ${p.last_activity?`<span>Last activity ${fmtDate(p.last_activity)}</span>`:''}
+    <div class="prog-head"><b>${esc(p.name)}</b><span class="ref">${esc(p.ref_code||'')}</span><span style="margin-left:auto">${stagePill(p.stage)}</span></div>
+    ${p.latest_note?`<div class="latest"><small>Latest update · ${fmtDate(p.latest_note_date)}</small>${esc(p.latest_note)}</div>`:'<div class="hint" style="margin-top:8px">No updates logged yet.</div>'}
+    ${p.ship_date||p.eta||p.archived?`<div class="prog-foot">
       ${p.ship_date?`<span>Ships ${fmtDate(p.ship_date)}</span>`:''}
       ${p.eta?`<span>Due in UK ${fmtDate(p.eta)}</span>`:''}
       ${p.archived?'<span>Archived</span>':''}
-    </div>
+    </div>`:''}
   </div>`;
 }
 
@@ -606,7 +633,7 @@ async function renderDetail(id,quiet){
   const items=progress.filter(p=>p.request_id===id);
   $('dRef').textContent=r.ref;
   $('dPills').innerHTML=`<span class="pill ${stCls(r.status)}">${esc(r.status)}</span>`;
-  $('dTitle').textContent=r.title;
+  $('dTitle').innerHTML=reqTitle(r);
   $('dBody').innerHTML=`
     ${r.status==='Declined'?`<div class="decline"><b>Declined</b>${r.decline_reason?' — '+esc(r.decline_reason):''}</div>`:''}
     <div>
@@ -616,14 +643,15 @@ async function renderDetail(id,quiet){
     <div>
       <div class="sec-title">Request</div>
       <div class="kv">
-        <div><b>Customer</b><span>${esc(r.customer)}</span></div>
+        ${r.customer?`<div><b>Customer</b><span>${esc(r.customer)}</span></div>`:''}
         <div><b>Type</b><span>${esc(r.request_type)}</span></div>
+        ${r.request_type==='Customer Service'?`<div><b>SKU</b><span>${esc(r.title)}</span></div><div><b>CS Ticket</b><span>${esc(r.cs_ticket||'—')}</span></div>`:''}
         <div><b>Sent</b><span>${fmtDate(r.created_at)}</span></div>
         <div><b>Being handled by</b><span>${r.assigned_to?esc(nameOf(r.assigned_to)):'Not assigned yet'}</span></div>
         ${r.target_price?`<div><b>Ideal / target sales price</b><span>${esc(r.target_price)}</span></div>`:''}
         ${r.acknowledged_at?`<div><b>Picked up</b><span>${fmtDate(r.acknowledged_at)}</span></div>`:''}
       </div>
-      ${r.description?`<div class="desc" style="margin-top:10px">${esc(r.description)}</div>`:''}
+      ${r.description?`<div class="desc" style="margin-top:10px">${r.request_type==='Customer Service'?'<b>Query</b>\n':''}${esc(r.description)}</div>`:''}
     </div>
     <div>
       <div class="sec-title">Attachments (${detailFiles.length})</div>
@@ -639,7 +667,8 @@ async function renderDetail(id,quiet){
   if(draft) $('msgText').value=draft;
   hydrateThumbs();
 }
-function nameOf(email){ const n=(email||'').split('@')[0].split('.')[0]; return n?n[0].toUpperCase()+n.slice(1):email; }
+const TEAM_NAMES={'syrus.cripps@birlea.com':'Syrus','bethany.herron@birlea.com':'Beth','michael.prime@birlea.com':'Michael'};
+function nameOf(email){ if(TEAM_NAMES[(email||'').toLowerCase()]) return TEAM_NAMES[email.toLowerCase()]; const n=(email||'').split('@')[0].split('.')[0]; return n?n[0].toUpperCase()+n.slice(1):email; }
 const isImg=f=>/^image\//.test(f.mime)||/\.(jpe?g|png|webp|gif|heic)$/i.test(f.name);
 const isVid=f=>/^video\//.test(f.mime)||/\.(mp4|mov|webm)$/i.test(f.name);
 function fileIcon(n){ return /\.pdf$/i.test(n)?'📄':/\.(xlsx?|xlsm|csv)$/i.test(n)?'📊':/\.(docx?|txt)$/i.test(n)?'📝':/\.(pptx?)$/i.test(n)?'📽️':'📎'; }
@@ -697,16 +726,44 @@ async function uploadOne(reqId,f){
 }
 
 // ═══ FORM ═══
+// Each request type shows only the fields it needs
+const TYPES={
+  'New Product Development':{icon:'🛏️',blurb:'Quotes, samples and new products for a customer',
+    fields:['email','customer','title','desc','price','files'],title:'Title',titlePh:'e.g. Upholstered ottoman bed — 3 sizes',
+    desc:'Details',descPh:'Sizes, colours, fabrics, materials, competitor reference, anything the customer said…'},
+  'Margin Sheets':{icon:'📊',blurb:'Margin sheets to build, check or update',
+    fields:['email','title','desc','files'],title:'Title',titlePh:'e.g. Margin sheet for NEXT bedside range',
+    desc:'Details',descPh:'What you need and for which products/customer…'},
+  'BC Set Up':{icon:'🧾',blurb:'Item set-up or changes in Business Central',
+    fields:['email','title','desc','files'],title:'Title',titlePh:'e.g. Set up new SKUs for Kingston bed',
+    desc:'Details',descPh:'SKUs, fields to set up or change…'},
+  'PIM Assistance':{icon:'🖥️',blurb:'Product info, images or listings in PIM',
+    fields:['email','title','desc','files'],title:'Title',titlePh:'e.g. Update images for Ashford wardrobe',
+    desc:'Details',descPh:'Which products and what needs changing…'},
+  'Customer Service':{icon:'🎧',blurb:'A product query raised through customer service',
+    fields:['email','title','cs','desc','files'],title:'SKU',titlePh:'e.g. BIR-OTT-DBL-GRY',
+    desc:'Query',descPh:'What the customer is asking or reporting…',descRequired:true}
+};
 let pending=[], reqType='';
-function showForm(){ $('f-email').value=me; $('listView').classList.add('hidden'); $('formView').classList.remove('hidden'); window.scrollTo(0,0); }
+$('typeGrid').innerHTML=Object.entries(TYPES).map(([k,t])=>`<button type="button" class="type-card" onclick="pickType('${k}')"><span class="ti">${t.icon}</span><b>${k}</b><span>${t.blurb}</span></button>`).join('');
+function pickType(k){
+  reqType=k; $('formMsg').textContent='';
+  $('typeStep').classList.toggle('hidden',!!k); $('reqForm').classList.toggle('hidden',!k);
+  if(!k) return;
+  const t=TYPES[k];
+  $('tIcon').textContent=t.icon; $('tName').textContent=k;
+  document.querySelectorAll('#reqForm [data-f]').forEach(el=>el.classList.toggle('hidden',!t.fields.includes(el.dataset.f)));
+  $('lTitle').textContent=t.title; $('f-title').placeholder=t.titlePh;
+  $('lDesc').textContent=t.desc; $('f-desc').placeholder=t.descPh; $('rDesc').classList.toggle('hidden',!t.descRequired);
+  $('f-email').value=me;
+  setTimeout(()=>$(t.fields.includes('customer')?'f-customer':'f-title').focus(),30);
+}
+function showForm(){ resetForm(); $('listView').classList.add('hidden'); $('formView').classList.remove('hidden'); window.scrollTo(0,0); }
 function showList(){ $('formView').classList.add('hidden'); $('listView').classList.remove('hidden'); }
 function resetForm(){
-  $('reqForm').reset(); pending=[]; reqType=''; renderPending();
-  $('formMsg').textContent='';
-  document.querySelectorAll('#typeChips .chip').forEach(c=>c.classList.remove('active'));
+  $('reqForm').reset(); pending=[]; renderPending(); pickType('');
   $('submitBtn').disabled=false; $('submitBtn').textContent='Send to buying';
 }
-document.querySelectorAll('#typeChips .chip').forEach(c=>c.addEventListener('click',()=>{ reqType=c.dataset.v; document.querySelectorAll('#typeChips .chip').forEach(x=>x.classList.toggle('active',x===c)); }));
 const drop=$('drop');
 drop.addEventListener('click',()=>$('f-files').click());
 drop.addEventListener('dragover',e=>{ e.preventDefault(); drop.classList.add('over'); });
@@ -722,15 +779,17 @@ function renderPending(){
 }
 $('reqForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  const cust=$('f-customer').value;
-  const title=$('f-title').value.trim();
-  const miss=[!cust&&'customer',!reqType&&'request type',!title&&'title'].filter(Boolean);
+  const t=TYPES[reqType]; if(!t) return;
+  const has=f=>t.fields.includes(f);
+  const cust=has('customer')?$('f-customer').value:'';
+  const title=$('f-title').value.trim(), cs=has('cs')?$('f-cs').value.trim():'', desc=$('f-desc').value.trim();
+  const miss=[has('customer')&&!cust&&'customer',!title&&t.title.toLowerCase(),has('cs')&&!cs&&'CS ticket',t.descRequired&&!desc&&t.desc.toLowerCase()].filter(Boolean);
   if(miss.length){ $('formMsg').textContent='Please add: '+miss.join(', '); return; }
   $('formMsg').textContent=''; const btn=$('submitBtn'); btn.disabled=true; btn.textContent='Sending…';
   let row;
   try{
-    [row]=await SB.post('requests',{customer:cust,request_type:reqType,title,
-      description:$('f-desc').value.trim(),target_price:$('f-price').value.trim(),requested_by:me});
+    [row]=await SB.post('requests',{customer:cust,request_type:reqType,title,cs_ticket:cs,
+      description:desc,target_price:has('price')?$('f-price').value.trim():'',requested_by:me});
   }catch(err){ $('formMsg').textContent='Could not send: '+err.message; btn.disabled=false; btn.textContent='Send to buying'; return; }
   let failed=0;
   for(let i=0;i<pending.length;i++){
