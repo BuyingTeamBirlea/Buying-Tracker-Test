@@ -6252,13 +6252,12 @@ function createItemFromRequest(id){
   const cat=REQ_TYPE_CATEGORY[r.request_type]||(r.customer?REQ_CUSTOMER_CATEGORY[r.customer.trim().toLowerCase()]||'Exclusive - Other':'');
   if(cat&&[...$('add-category').options].some(o=>o.value===cat)) $('add-category').value=cat;
   $('add-stage').value=REQ_TYPE_STAGE[r.request_type]||'Quoting';
+  const who=reqName(r.assigned_to||(getStoredSession()?.user?.email||'').toLowerCase());
   if(r.request_type==='Customer Service'){
     $('add-stage').disabled=true;                 // CS cards always start as Awaiting Response
-    $('add-note').value='Sent query to Factory';
+    $('add-note').value=`Sent query to Factory - ${who} is working on this`;
   }else{
     // "Request Received - <details> - <who> is working on this"
-    const meEmail=(getStoredSession()?.user?.email||'').toLowerCase();
-    const who=reqName(r.assigned_to||meEmail);
     const details=(r.description||r.title||'').replace(/\s+/g,' ').trim();
     $('add-note').value=`Request Received - ${details} - ${who} is working on this`;
   }

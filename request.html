@@ -139,6 +139,12 @@ body.light-mode .stg-quoting{color:#c2410c}body.light-mode .stg-sampling{color:#
 body.light-mode .stg-jake,body.light-mode .stg-cancelled{color:#b91c1c}body.light-mode .stg-qc{color:#15803d}
 body.light-mode .stg-spec{color:#0369a1}body.light-mode .stg-resp{color:#be185d}
 body.light-mode .stg-loaded{color:#475569}body.light-mode .stg-hold{color:#475569}
+.days-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:.74rem;font-weight:600;font-family:'DM Mono',monospace;white-space:nowrap}
+.days-green{background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.25)}
+.days-amber{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
+.days-red{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);animation:pulse-red 2s infinite}
+@keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}50%{box-shadow:0 0 0 3px rgba(239,68,68,.15)}}
+body.light-mode .days-green{color:#15803d}body.light-mode .days-amber{color:#b45309}body.light-mode .days-red{color:#b91c1c}
 .latest{margin-top:10px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:9px 11px;font-size:.86rem;line-height:1.45;white-space:pre-wrap}
 .latest small{display:block;font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:3px}
 
@@ -588,7 +594,7 @@ function renderList(){
         <span class="pill ${stCls(r.status)}">${esc(r.status)}</span>
         ${r.rep_unread?'<span class="new-dot">● Update</span>':''}
       </div>
-      ${items.length?`<div class="mini-items">${items.map(i=>`<span class="mini-item">${esc(i.name)}</span>${stagePill(i.stage)}`).join('')}</div>`:''}
+      ${items.length?`<div class="mini-items">${items.map(i=>`<span class="mini-item">${esc(i.name)}</span>${stagePill(i.stage)}${daysBadge(i)}`).join('')}</div>`:''}
     </div>`;
   }).join('');
 }
@@ -597,10 +603,25 @@ function renderList(){
 // Same statuses and colours as the Buying Tracker
 const STAGE_CLASS={'Quoting':'stg-quoting','Sampling':'stg-sampling','Awaiting Jake Approval':'stg-jake','QC':'stg-qc',
   'Awaiting Spec Forms':'stg-spec','Awaiting Response':'stg-resp','Loaded / Shipped':'stg-loaded','To-Do':'stg-hold','On Hold':'stg-hold','Cancelled / Dropped':'stg-cancelled'};
+// Days since the last timeline entry — same rule and default thresholds as the tracker
+// (0–3 green, 4–6 amber, 7+ red; no tracking for Loaded / Shipped, On Hold, To-Do)
+const NO_INACTIVE=new Set(['Loaded / Shipped','On Hold','To-Do']);
+const DAYS_CFG={green:3,amberHi:6};
+function daysInactive(p){
+  if(NO_INACTIVE.has(p.stage)||!p.last_activity) return null;
+  return Math.max(0,Math.floor((new Date(todayISO()+'T00:00:00')-new Date(p.last_activity+'T00:00:00'))/86400000));
+}
+function daysBadge(p){
+  const n=daysInactive(p); if(n==null) return '';
+  const t=n===0?'Updated today':`${n}d since last update`;
+  if(n<=DAYS_CFG.green)   return `<span class="days-badge days-green" title="${t}">${n}d</span>`;
+  if(n<=DAYS_CFG.amberHi) return `<span class="days-badge days-amber" title="${t}">${n}d</span>`;
+  return `<span class="days-badge days-red" title="${t}">⚠ ${n}d</span>`;
+}
 const stagePill=s=>`<span class="stg ${STAGE_CLASS[s]||'stg-hold'}">${esc(s||'—')}</span>`;
 function progressHTML(p){
   return `<div class="prog">
-    <div class="prog-head"><b>${esc(p.name)}</b><span class="ref">${esc(p.ref_code||'')}</span><span style="margin-left:auto">${stagePill(p.stage)}</span></div>
+    <div class="prog-head"><b>${esc(p.name)}</b><span class="ref">${esc(p.ref_code||'')}</span><span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center">${stagePill(p.stage)}${daysBadge(p)}</span></div>
     ${p.latest_note?`<div class="latest"><small>Latest update · ${fmtDate(p.latest_note_date)}</small>${esc(p.latest_note)}</div>`:'<div class="hint" style="margin-top:8px">No updates logged yet.</div>'}
     ${p.ship_date||p.eta||p.archived?`<div class="prog-foot">
       ${p.ship_date?`<span>Ships ${fmtDate(p.ship_date)}</span>`:''}
