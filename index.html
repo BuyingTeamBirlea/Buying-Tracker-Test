@@ -6256,10 +6256,11 @@ function createItemFromRequest(id){
     $('add-stage').disabled=true;                 // CS cards always start as Awaiting Response
     $('add-note').value='Sent query to Factory';
   }else{
-    const bits=[`From sales request ${r.ref} (${reqName(r.requested_by)})${r.customer?' for '+r.customer:''}`];
-    bits.push(r.request_type);
-    if(r.target_price) bits.push(`target sales price ${r.target_price}`);
-    $('add-note').value=bits.join(' · ');
+    // "Request Received - <details> - <who> is working on this"
+    const meEmail=(getStoredSession()?.user?.email||'').toLowerCase();
+    const who=reqName(r.assigned_to||meEmail);
+    const details=(r.description||r.title||'').replace(/\s+/g,' ').trim();
+    $('add-note').value=`Request Received - ${details} - ${who} is working on this`;
   }
   $('addSaveBtn').textContent='Create item card';
   setTimeout(()=>$('add-name').focus(),50);
