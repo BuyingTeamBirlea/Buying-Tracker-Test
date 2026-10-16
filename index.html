@@ -641,6 +641,12 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
 .rq-reply{display:flex;gap:8px;margin-top:8px}
 .rq-reply textarea{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:var(--radius-sm);font-family:inherit;font-size:.86rem;outline:none;resize:none;height:54px}
 .rq-reply textarea:focus{border-color:var(--accent)}
+.rq-done{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.3);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px}
+.rq-done .rq-desc{background:var(--bg2);margin:8px 0 10px}
+.rq-drop{border:2px dashed var(--border2);border-radius:var(--radius);padding:18px;text-align:center;color:var(--text2);cursor:pointer;font-size:.86rem;transition:all .15s}
+.rq-drop.over{border-color:var(--accent);background:rgba(79,110,247,.06)}
+.rq-file-row{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:.84rem;margin-top:6px}
+.rq-file-row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rq-decline{display:flex;gap:8px;margin-top:8px}
 .rq-decline input{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:var(--radius-sm);font-family:inherit;font-size:.86rem;outline:none}
 </style>
@@ -1247,6 +1253,34 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
     </div>
     <div class="modal-body" id="rqBody"></div>
     <div class="modal-footer" id="rqFooter"></div>
+  </div>
+</div>
+
+<!-- COMPLETE REQUEST MODAL -->
+<div class="overlay hidden" id="reqDoneOverlay">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div><div class="modal-title" id="rdTitle">Complete request</div>
+        <div style="font-size:.8rem;color:var(--text3);margin-top:3px" id="rdSub"></div></div>
+      <button class="modal-close" onclick="closeReqDone()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field" style="margin-bottom:14px">
+        <label>Details for the requester</label>
+        <textarea id="rdNotes" style="min-height:120px" placeholder="What was done, answers, prices, next steps…"></textarea>
+      </div>
+      <div class="field">
+        <label>Files</label>
+        <div class="rq-drop" id="rdDrop" onclick="$('rdFiles').click()">📎 Drop files here or click to choose<div style="font-size:.74rem;color:var(--text3);margin-top:3px">Any file type · up to 50 MB each · the requester can download these</div></div>
+        <input type="file" id="rdFiles" multiple class="hidden" onchange="rdAddFiles(this.files);this.value=''">
+        <div id="rdFileRows"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeReqDone()">Cancel</button>
+      <div class="spacer"></div>
+      <button class="btn" id="rdSaveBtn" onclick="saveReqDone()">✔ Complete request</button>
+    </div>
   </div>
 </div>
 
@@ -5308,9 +5342,14 @@ $('dupOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) clo
 $('deadlineOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeDeadlineModal(); });
 $('airmailOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeAirmailModal(); });
 $('reqOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeReqModal(); });
+$('reqDoneOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeReqDone(); });
+(function(){ const z=$('rdDrop');
+  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('over');});
+  z.addEventListener('dragleave',()=>z.classList.remove('over'));
+  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('over');rdAddFiles(e.dataTransfer.files);}); })();
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){ closeReqModal(); closeDetail(); closeAdd(); closeConfirm(); closeImgOverlay(); closeVidOverlay(); closeDup(); closeDeadlineModal(); closeAirmailModal(); }
+  if(e.key==='Escape'){ if(!$('reqDoneOverlay').classList.contains('hidden')){ closeReqDone(); return; } closeReqModal(); closeDetail(); closeAdd(); closeConfirm(); closeImgOverlay(); closeVidOverlay(); closeDup(); closeDeadlineModal(); closeAirmailModal(); }
   if(!$('imgOverlay').classList.contains('hidden')){
     if(e.key==='ArrowLeft') prevImg(); if(e.key==='ArrowRight') nextImg();
     if(e.key==='+') zoomIn(); if(e.key==='-') zoomOut();
@@ -6103,12 +6142,19 @@ async function refreshReqModal(){
   const focusId=document.activeElement?.id;
   const items=reqItemsFor(id), open=REQ_OPEN.has(r.status);
   const me=(getStoredSession()?.user?.email||'').toLowerCase();
-  const unmoved=_reqFiles.filter(f=>!f.sp_path);
+  const unmoved=_reqFiles.filter(f=>!f.sp_path&&!f.is_completion);
+  const repFiles=_reqFiles.map((f,i)=>[f,i]).filter(([f])=>!f.is_completion);
+  const doneFiles=_reqFiles.map((f,i)=>[f,i]).filter(([f])=>f.is_completion);
   $('rqRef').textContent=r.ref;
   $('rqPills').innerHTML=`<span class="rq-pill ${reqStCls(r.status)}">${esc(r.status)}</span>`;
   $('rqTitle').textContent=reqTitleText(r);
   $('rqBody').innerHTML=`
     ${r.status==='Declined'?`<div class="rq-desc" style="border-color:rgba(239,68,68,.4)"><b>Declined</b>${r.decline_reason?' — '+esc(r.decline_reason):''}</div>`:''}
+    ${r.status==='Complete'&&(r.completion_notes||doneFiles.length)?`<div class="rq-done">
+      <div class="section-title" style="margin:0">✔ Completed${r.completed_at?' '+fmtEntryDate(r.completed_at.slice(0,10),true):''} — sent to ${esc(reqName(r.requested_by))}</div>
+      ${r.completion_notes?`<div class="rq-desc">${esc(r.completion_notes)}</div>`:''}
+      ${doneFiles.length?`<div class="rq-thumbs">${doneFiles.map(([f,i])=>reqThumbHTML(f,i)).join('')}</div>`:''}
+    </div>`:''}
     <div class="rq-kv">
       ${r.customer?`<div><b>Customer</b><span>${esc(r.customer)}</span></div>`:''}
       <div><b>Type</b><span>${esc(r.request_type)}</span></div>
@@ -6136,13 +6182,12 @@ async function refreshReqModal(){
         :`<div style="font-size:.84rem;color:var(--text3)">None yet. A ticket can create several cards (e.g. one per bed), or be completed without one.</div>`}
     </div>
     <div class="rq-sec">
-      <div class="section-title" style="display:flex;align-items:center;gap:8px">Attachments (${_reqFiles.length})
+      <div class="section-title" style="display:flex;align-items:center;gap:8px">Attachments (${repFiles.length})
         ${unmoved.length&&items.length?`<span style="margin-left:auto;display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-weight:500">
           ${items.length>1?`<select id="rqSpTarget" style="font-size:.75rem;padding:4px 24px 4px 8px">${items.map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join('')}</select>`:''}
           <button class="btn btn-sm" onclick="copyRequestFilesToSp('${id}',$('rqSpTarget')?.value||'${items[0].id}')">📁 Copy ${unmoved.length} to SharePoint</button></span>`:''}
       </div>
-      ${_reqFiles.length?`<div class="rq-thumbs" id="rqThumbs">${_reqFiles.map((f,i)=>`<div class="rq-thumb" data-i="${i}" onclick="openReqFile(${i})" title="${esc(f.name)}">
-          <span><span class="rq-ic">${reqIsImg(f)?'🖼️':reqIsVid(f)?'🎬':fileIconByName(f.name)}</span>${esc(f.name)}</span>${f.sp_path?'<span class="rq-sp">SP ✓</span>':''}</div>`).join('')}</div>`
+      ${repFiles.length?`<div class="rq-thumbs" id="rqThumbs">${repFiles.map(([f,i])=>reqThumbHTML(f,i)).join('')}</div>`
         :'<div style="font-size:.84rem;color:var(--text3)">No attachments.</div>'}
     </div>
     <div class="rq-sec" style="margin-bottom:0">
@@ -6165,6 +6210,10 @@ async function refreshReqModal(){
   reqHydrateThumbs();
 }
 
+function reqThumbHTML(f,i){
+  return `<div class="rq-thumb" data-i="${i}" onclick="openReqFile(${i})" title="${esc(f.name)}">
+    <span><span class="rq-ic">${reqIsImg(f)?'🖼️':reqIsVid(f)?'🎬':fileIconByName(f.name)}</span>${esc(f.name)}</span>${f.sp_path?'<span class="rq-sp">SP ✓</span>':''}</div>`;
+}
 const reqIsImg=f=>/^image\//.test(f.mime||'')||/\.(jpe?g|png|webp|gif)$/i.test(f.name);
 const reqIsVid=f=>/^video\//.test(f.mime||'')||/\.(mp4|mov|webm)$/i.test(f.name);
 async function reqBlob(f){
@@ -6180,7 +6229,7 @@ async function reqBlobUrl(f){
 function reqHydrateThumbs(){
   _reqFiles.forEach((f,i)=>{
     if(!reqIsImg(f)||f.size>8*1048576) return;
-    reqBlobUrl(f).then(u=>{ const el=document.querySelector(`#rqThumbs .rq-thumb[data-i="${i}"]`); if(el&&!el.querySelector('img')) el.insertAdjacentHTML('afterbegin',`<img src="${u}" alt="" onerror="this.remove()">`); }).catch(()=>{});
+    reqBlobUrl(f).then(u=>{ const el=document.querySelector(`#rqBody .rq-thumb[data-i="${i}"]`); if(el&&!el.querySelector('img')) el.insertAdjacentHTML('afterbegin',`<img src="${u}" alt="" onerror="this.remove()">`); }).catch(()=>{});
   });
 }
 async function openReqFile(i){
@@ -6216,10 +6265,59 @@ function declineRequest(id){
   _reqDeclining=false;
   setReqStatus(id,'Declined',{decline_reason:reason});
 }
+// ── Complete: notes + files for the requester ──
+let _rdReqId=null, _rdPending=[];
 function completeRequest(id){
-  const r=reqData.find(x=>x.id===id);
+  const r=reqData.find(x=>x.id===id); if(!r) return;
+  _rdReqId=id; _rdPending=[];
   const n=reqItemsFor(id).length;
-  confirmAction(`Complete ${r?.ref||'request'}?`,n?'It leaves the open list. The rep keeps following the item card progress from their page.':'No item card was created for this request. It leaves the open list and shows as Complete to the rep.',()=>setReqStatus(id,'Complete'));
+  $('rdTitle').textContent=`Complete ${r.ref}`;
+  $('rdSub').textContent=`${reqName(r.requested_by)} will see these details and files on their request page.${n?'':' No item card was created for this request.'}`;
+  $('rdNotes').value=r.completion_notes||'';
+  rdRender();
+  $('rdSaveBtn').disabled=false; $('rdSaveBtn').textContent='✔ Complete request';
+  $('reqDoneOverlay').classList.remove('hidden');
+  setTimeout(()=>$('rdNotes').focus(),50);
+}
+function closeReqDone(){ $('reqDoneOverlay')?.classList.add('hidden'); _rdReqId=null; _rdPending=[]; }
+function rdAddFiles(list){
+  [...list].forEach(f=>{
+    if(f.size>50*1048576){ toast(f.name+' is over 50 MB','error'); return; }
+    _rdPending.push({file:f,state:''});
+  });
+  rdRender();
+}
+function rdRemove(i){ _rdPending.splice(i,1); rdRender(); }
+function rdRender(){
+  $('rdFileRows').innerHTML=_rdPending.map((p,i)=>`<div class="rq-file-row"><span>${fileIconByName(p.file.name)}</span><span class="nm">${esc(p.file.name)}</span>
+    <span style="font-size:.74rem;color:var(--text3);font-family:'DM Mono',monospace">${(p.file.size/1048576).toFixed(1)} MB</span>
+    ${p.state?`<span style="font-size:.78rem">${p.state}</span>`:`<button class="ebtn del" onclick="rdRemove(${i})">✕</button>`}</div>`).join('');
+}
+async function saveReqDone(){
+  const id=_rdReqId; const r=reqData.find(x=>x.id===id); if(!r) return;
+  const notes=$('rdNotes').value.trim();
+  const btn=$('rdSaveBtn'); btn.disabled=true;
+  const me=(getStoredSession()?.user?.email||'').toLowerCase();
+  let failed=0;
+  for(let i=0;i<_rdPending.length;i++){
+    const p=_rdPending[i]; if(p.state==='✓') continue;
+    btn.textContent=`Uploading ${i+1}/${_rdPending.length}…`; p.state='…'; rdRender();
+    try{
+      const safe=p.file.name.normalize('NFKD').replace(/[^\w.\- ]+/g,'').replace(/\s+/g,'_').slice(-120)||'file';
+      const path=`${id}/done-${newId().slice(0,8)}-${safe}`;
+      await SB.upload(REQ_BUCKET,path.split('/').map(encodeURIComponent).join('/'),p.file);
+      await SB.post('request_files',{request_id:id,name:p.file.name,storage_path:path,mime:p.file.type||'',size:p.file.size,uploaded_by:me,is_completion:true});
+      p.state='✓';
+    }catch(e){ p.state='✗'; failed++; }
+    rdRender();
+  }
+  if(failed){ btn.disabled=false; btn.textContent='Retry & complete'; toast(`${failed} file${failed>1?'s':''} failed to upload — remove or retry`,'error'); return; }
+  try{
+    await SB.patch(`requests?id=eq.${id}`,{status:'Complete',completion_notes:notes});
+    closeReqDone(); await loadRequests();
+    if(reqOpenId===id) refreshReqModal();
+    toast(`${r.ref} completed ✓`);
+  }catch(e){ btn.disabled=false; btn.textContent='✔ Complete request'; toast('Complete failed: '+e.message,'error'); }
 }
 function deleteRequest(id){
   const r=reqData.find(x=>x.id===id); if(!r) return;
@@ -6273,7 +6371,7 @@ async function afterRequestItemCreated(reqId,item){
     await loadRequests();
   }catch(e){ toast('Item created, but linking it to the request failed: '+e.message,'error'); return; }
   await openReqModal(reqId);
-  const unmoved=_reqFiles.filter(f=>!f.sp_path);
+  const unmoved=_reqFiles.filter(f=>!f.sp_path&&!f.is_completion);
   if(unmoved.length){
     confirmAction('Copy attachments to SharePoint?',
       `${unmoved.length} file${unmoved.length>1?'s':''} from this request will be saved to "${item.name}": photos/MP4 → Media, everything else → Sales Request Files (Quotations folder).`,
@@ -6285,12 +6383,12 @@ async function copyRequestFilesToSp(reqId,itemId){
   const item=data.find(i=>i.id===itemId); if(!item){ toast('Item not found','error'); return; }
   if(!('showDirectoryPicker' in window)){ toast('SharePoint saving needs desktop Chrome or Edge','error'); return; }
   // Ask for folder permission first, while we still have the click
-  const needMedia=_reqFiles.some(f=>!f.sp_path&&REQ_MEDIA_EXTS.has(f.name.split('.').pop().toLowerCase()));
-  const needOther=_reqFiles.some(f=>!f.sp_path&&!REQ_MEDIA_EXTS.has(f.name.split('.').pop().toLowerCase()));
+  const needMedia=_reqFiles.some(f=>!f.sp_path&&!f.is_completion&&REQ_MEDIA_EXTS.has(f.name.split('.').pop().toLowerCase()));
+  const needOther=_reqFiles.some(f=>!f.sp_path&&!f.is_completion&&!REQ_MEDIA_EXTS.has(f.name.split('.').pop().toLowerCase()));
   if(needMedia&&!(await getSpRoot('media'))){ toast('Connect the Media folder first (open the item → Media tab → Connect)','error'); return; }
   if(needOther&&!(await getSpRoot('request'))){ toast('Connect the Quotations folder first (open the item → Files tab → Connect)','error'); return; }
   let files;
-  try{ files=await SB.get(`request_files?request_id=eq.${reqId}&sp_path=is.null&select=*&order=created_at.asc`); }
+  try{ files=await SB.get(`request_files?request_id=eq.${reqId}&sp_path=is.null&is_completion=is.false&select=*&order=created_at.asc`); }
   catch(e){ toast('Could not read request files: '+e.message,'error'); return; }
   let ok=0;
   for(const [n,f] of files.entries()){

@@ -145,6 +145,9 @@ body.light-mode .stg-loaded{color:#475569}body.light-mode .stg-hold{color:#47556
 .days-red{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);animation:pulse-red 2s infinite}
 @keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}50%{box-shadow:0 0 0 3px rgba(239,68,68,.15)}}
 body.light-mode .days-green{color:#15803d}body.light-mode .days-amber{color:#b45309}body.light-mode .days-red{color:#b91c1c}
+.done-box{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.35);border-radius:var(--radius);padding:14px}
+.done-box .desc{background:var(--bg2);margin:8px 0 10px}
+.done-tag{font-size:.74rem;font-weight:600;color:var(--green)}
 .latest{margin-top:10px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:9px 11px;font-size:.86rem;line-height:1.45;white-space:pre-wrap}
 .latest small{display:block;font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:3px}
 
@@ -593,6 +596,7 @@ function renderList(){
       <div class="req-side">
         <span class="pill ${stCls(r.status)}">${esc(r.status)}</span>
         ${r.rep_unread?'<span class="new-dot">● Update</span>':''}
+        ${r.status==='Complete'&&r.completion_notes?'<span class="done-tag">📄 Details ready</span>':''}
       </div>
       ${items.length?`<div class="mini-items">${items.map(i=>`<span class="mini-item">${esc(i.name)}</span>${stagePill(i.stage)}${daysBadge(i)}`).join('')}</div>`:''}
     </div>`;
@@ -658,7 +662,14 @@ async function renderDetail(id,quiet){
   $('dRef').textContent=r.ref;
   $('dPills').innerHTML=`<span class="pill ${stCls(r.status)}">${esc(r.status)}</span>`;
   $('dTitle').innerHTML=reqTitle(r);
+  const repFiles=detailFiles.map((f,i)=>[f,i]).filter(([f])=>!f.is_completion);
+  const doneFiles=detailFiles.map((f,i)=>[f,i]).filter(([f])=>f.is_completion);
   $('dBody').innerHTML=`
+    ${r.status==='Complete'?`<div class="done-box">
+      <div class="sec-title" style="margin:0;color:var(--green)">✔ Completed${r.completed_at?' '+fmtDate(r.completed_at):''}${r.assigned_to?' by '+esc(nameOf(r.assigned_to)):''}</div>
+      ${r.completion_notes?`<div class="desc">${esc(r.completion_notes)}</div>`:''}
+      ${doneFiles.length?`<div class="sec-title" style="margin-top:6px">Files from buying (${doneFiles.length})</div><div class="thumbs">${doneFiles.map(([f,i])=>thumbHTML(f,i)).join('')}</div>`:''}
+    </div>`:''}
     ${r.status==='Declined'?`<div class="decline"><b>Declined</b>${r.decline_reason?' — '+esc(r.decline_reason):''}</div>`:''}
     <div>
       <div class="sec-title">Item cards in the Buying Tracker</div>
@@ -678,8 +689,8 @@ async function renderDetail(id,quiet){
       ${r.description?`<div class="desc" style="margin-top:10px">${r.request_type==='Customer Service'?'<b>Query</b>\n':''}${esc(r.description)}</div>`:''}
     </div>
     <div>
-      <div class="sec-title">Attachments (${detailFiles.length})</div>
-      <div class="thumbs" id="dThumbs">${detailFiles.map((f,i)=>thumbHTML(f,i)).join('')}</div>
+      <div class="sec-title">Your attachments (${repFiles.length})</div>
+      <div class="thumbs" id="dThumbs">${repFiles.map(([f,i])=>thumbHTML(f,i)).join('')}</div>
       ${OPEN_ST.has(r.status)?`<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="$('addFiles').click()">📎 Add more files</button>
       <input type="file" id="addFiles" multiple class="hidden" onchange="addMoreFiles(event,'${id}')">`:''}
     </div>
@@ -708,7 +719,7 @@ async function getBlobUrl(f){
 function hydrateThumbs(){
   detailFiles.forEach((f,i)=>{
     if(!isImg(f)||f.size>8*1048576) return;
-    getBlobUrl(f).then(u=>{ const el=document.querySelector(`#dThumbs .thumb[data-i="${i}"]`); if(el&&!el.querySelector('img')) el.insertAdjacentHTML('beforeend',`<img src="${u}" alt="" onerror="this.remove()">`); }).catch(()=>{});
+    getBlobUrl(f).then(u=>{ const el=document.querySelector(`#dBody .thumb[data-i="${i}"]`); if(el&&!el.querySelector('img')) el.insertAdjacentHTML('beforeend',`<img src="${u}" alt="" onerror="this.remove()">`); }).catch(()=>{});
   });
 }
 async function openFile(i){
