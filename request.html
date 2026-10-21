@@ -234,7 +234,7 @@ body.light-mode .days-green{color:#15803d}body.light-mode .days-amber{color:#b45
     <button class="link-btn" type="button" id="forgotBtn">Forgot password?</button>
   </form>
   <form class="login-box hidden" id="resetForm">
-    <h1><span class="dot"></span> Set a new password</h1>
+    <h1><span class="dot"></span> <span id="resetTitle">Set a new password</span></h1>
     <div class="field"><label>New password</label><input type="password" id="resetPw" autocomplete="new-password" required></div>
     <div class="field"><label>Confirm password</label><input type="password" id="resetPw2" autocomplete="new-password" required></div>
     <div class="err hidden" id="resetError"></div>
@@ -269,8 +269,8 @@ body.light-mode .days-green{color:#15803d}body.light-mode .days-amber{color:#b45
     <section id="listView">
       <div class="page-head">
         <div>
-          <h1>My requests</h1>
-          <p>Track every request you've sent and see the item cards as they move through buying.</p>
+          <h1 id="listTitle">My requests</h1>
+          <p id="listSub">Track every request you've sent and see the item cards as they move through buying.</p>
         </div>
         <div class="spacer"></div>
         <div class="seg" id="filterSeg">
@@ -479,11 +479,13 @@ let _recovery=null;
 function handleRecovery(){
   const h=location.hash.replace(/^#/,''); if(!h) return false;
   const p=new URLSearchParams(h);
-  if(p.get('type')!=='recovery'&&!p.get('error_description')) return false;
+  const kind=p.get('type');
+  if(kind!=='recovery'&&kind!=='invite'&&!p.get('error_description')) return false;
   history.replaceState(null,'',location.pathname+location.search);
   if(p.get('error_description')){ showLogin('Reset link invalid or expired — request a new one.'); return true; }
   _recovery={access_token:p.get('access_token'),refresh_token:p.get('refresh_token'),expires_in:+(p.get('expires_in')||3600)};
   $('loginScreen').classList.remove('hidden'); $('loginForm').classList.add('hidden'); $('resetForm').classList.remove('hidden');
+  if(kind==='invite'){ $('resetTitle').textContent='Welcome — choose your password'; $('resetBtn').textContent='Set password & continue'; }
   return true;
 }
 async function setPassword(token,pw){
@@ -523,7 +525,7 @@ $('menuBtn').addEventListener('click',e=>{ e.stopPropagation(); $('menu').classL
 document.addEventListener('click',()=>$('menu').classList.remove('open'));
 
 // ═══ STATE ═══
-let me='', myRole=null, requests=[], progress=[], filter='open', openId=null, lastTs=null, pollTimer=null;
+let me='', myDept='', myRole=null, requests=[], progress=[], filter='open', openId=null, lastTs=null, pollTimer=null;
 const OPEN_ST=new Set(['New','Acknowledged','In Progress']);
 
 async function boot(){
@@ -531,7 +533,9 @@ async function boot(){
   me=(getSession()?.user?.email||'').toLowerCase();
   $('whoAmI').textContent=me;
   try{ myRole=await SB.rpc('my_role'); }catch(e){ myRole=null; }
-  $('trackerLink').classList.toggle('hidden',myRole!=='buyer');
+  $('trackerLink').classList.toggle('hidden',myRole!=='buyer'&&myRole!=='viewer');
+  try{ const u=await SB.get(`app_users?email=eq.${encodeURIComponent(me)}&select=department`); myDept=u&&u[0]?u[0].department:''; }catch(e){ myDept=''; }
+  if(myDept){ $('listTitle').textContent=`${myDept} requests`; $('listSub').textContent=`Every request your department has sent, and the item cards as they move through buying.`; }
   if(!myRole){ $('noRole').classList.remove('hidden'); $('listView').classList.add('hidden'); return; }
   await loadAll();
   clearInterval(pollTimer); pollTimer=setInterval(poll,POLL_MS);
@@ -540,7 +544,7 @@ async function boot(){
 async function loadAll(){
   try{
     const [reqs,prog]=await Promise.all([
-      SB.get(`requests?select=*&requested_by=eq.${encodeURIComponent(me)}&order=created_at.desc`),
+      SB.get(`requests?select=*&order=created_at.desc`),          // RLS: own + same department
       SB.rpc('request_progress')
     ]);
     requests=reqs||[]; progress=prog||[];
@@ -554,7 +558,7 @@ async function loadAll(){
 async function poll(){
   if(document.hidden) return;
   try{
-    const r=await SB.get(`requests?select=updated_at&requested_by=eq.${encodeURIComponent(me)}&order=updated_at.desc&limit=1`);
+    const r=await SB.get(`requests?select=updated_at&order=updated_at.desc&limit=1`);
     const ts=r&&r[0]?r[0].updated_at:'';
     if(ts!==lastTs){ await loadAll(); return; }
     const prog=await SB.rpc('request_progress');
@@ -591,7 +595,7 @@ function renderList(){
       <div>
         <div class="req-top"><span class="ref">${esc(r.ref)}</span></div>
         <div class="req-title">${reqTitle(r)}</div>
-        <div class="req-meta">${r.customer?`<span>${esc(r.customer)}</span>`:''}<span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}</span>${assigneeHTML(r)}</div>
+        <div class="req-meta">${r.customer?`<span>${esc(r.customer)}</span>`:''}<span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}${r.requested_by!==me?' by '+esc(nameOf(r.requested_by)):''}</span>${assigneeHTML(r)}</div>
       </div>
       <div class="req-side">
         <span class="pill ${stCls(r.status)}">${esc(r.status)}</span>
@@ -681,7 +685,7 @@ async function renderDetail(id,quiet){
         ${r.customer?`<div><b>Customer</b><span>${esc(r.customer)}</span></div>`:''}
         <div><b>Type</b><span>${esc(r.request_type)}</span></div>
         ${r.request_type==='Customer Service'?`<div><b>SKU</b><span>${esc(r.title)}</span></div><div><b>CS Ticket</b><span>${esc(r.cs_ticket||'—')}</span></div>`:''}
-        <div><b>Sent</b><span>${fmtDate(r.created_at)}</span></div>
+        <div><b>Sent</b><span>${fmtDate(r.created_at)}${r.requested_by!==me?' · '+esc(nameOf(r.requested_by)):''}</span></div>
         <div><b>Being handled by</b><span>${r.assigned_to?esc(nameOf(r.assigned_to)):'Not assigned yet'}</span></div>
         ${r.target_price?`<div><b>Ideal / target sales price</b><span>${esc(r.target_price)}</span></div>`:''}
         ${r.acknowledged_at?`<div><b>Picked up</b><span>${fmtDate(r.acknowledged_at)}</span></div>`:''}

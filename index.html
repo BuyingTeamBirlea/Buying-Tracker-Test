@@ -641,6 +641,28 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
 .rq-reply{display:flex;gap:8px;margin-top:8px}
 .rq-reply textarea{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:var(--radius-sm);font-family:inherit;font-size:.86rem;outline:none;resize:none;height:54px}
 .rq-reply textarea:focus{border-color:var(--accent)}
+.view-banner{display:none;background:rgba(245,158,11,.12);border-bottom:1px solid rgba(245,158,11,.35);color:var(--text);padding:7px 24px;font-size:.82rem;text-align:center}
+body.view-only .view-banner{display:block}
+body.view-only .toolbar .btn[onclick="openAddModal()"],
+body.view-only #tabEdit,
+body.view-only .add-entry-row,
+body.view-only #detailFooter,
+body.view-only .tentry .ebtn,
+body.view-only .file-drop-zone,
+body.view-only .drop-zone,
+body.view-only .img-thumb-del,
+body.view-only .vid-thumb-del,
+body.view-only .file-actions .ebtn.del,
+body.view-only [id^="spStatus-"],
+body.view-only .todo-add-area,
+body.view-only .logi-section-title .btn,
+body.view-only #rqFooter,
+body.view-only .rq-reply,
+body.view-only #rqAssign,
+body.view-only #rqAssign ~ .btn,
+body.view-only [onclick^="createItemFromRequest"],
+body.view-only [onclick^="copyRequestFilesToSp"],
+body.view-only #menuDropdown button:not([onclick="signOut()"]):not([onclick^="export"]){display:none!important}
 .rq-done{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.3);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px}
 .rq-done .rq-desc{background:var(--bg2);margin:8px 0 10px}
 .rq-drop{border:2px dashed var(--border2);border-radius:var(--radius);padding:18px;text-align:center;color:var(--text2);cursor:pointer;font-size:.86rem;transition:all .15s}
@@ -747,6 +769,7 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
   </div>
 </header>
 
+<div class="view-banner">👁 View-only access — you can see everything but changes are made by the buying team.</div>
 <div id="pageMain" class="page active">
 <div class="main">
   <div class="cards" id="summaryCards"></div>
@@ -1507,7 +1530,7 @@ async function sendPasswordReset(){
 function handleRecoveryRedirect(){
   const h=location.hash.replace(/^#/,''); if(!h) return false;
   const p=new URLSearchParams(h);
-  const isRecovery=p.get('type')==='recovery';
+  const isRecovery=p.get('type')==='recovery'||p.get('type')==='invite'; // invite = first-time password
   const errDesc=p.get('error_description');
   if(!isRecovery&&!errDesc) return false;
   history.replaceState(null,'',location.pathname+location.search); // strip tokens from URL
@@ -6106,7 +6129,7 @@ function renderRequestsPage(){
       <td><span class="rq-ref">${esc(r.ref)}</span></td>
       <td>${r.customer?esc(r.customer):'<span style="color:var(--text3)">—</span>'}</td>
       <td>${esc(reqTitleText(r))}<div style="font-size:.74rem;color:var(--text3)">${esc(r.request_type)}${r.buyer_unread&&r.status!=='New'?' · <span style="color:var(--accent)">● new activity</span>':''}</div></td>
-      <td>${esc(reqName(r.requested_by))}</td>
+      <td>${esc(reqName(r.requested_by))}${r.department?`<div style="font-size:.72rem;color:var(--text3)">${esc(r.department)}</div>`:''}</td>
       <td>${r.assigned_to?esc(reqName(r.assigned_to)):'<span style="color:var(--amber)">Unassigned</span>'}</td>
       <td><span class="rq-pill ${reqStCls(r.status)}">${esc(r.status)}</span></td>
       <td>${items.length?items.map(i=>`<div style="font-size:.78rem">${esc(i.name)}</div>`).join(''):'<span style="color:var(--text3)">—</span>'}</td>
@@ -6121,7 +6144,7 @@ async function openReqModal(id){
   $('rqBody').innerHTML='<div style="color:var(--text3);font-size:.85rem">Loading…</div>';
   $('reqOverlay').classList.remove('hidden');
   const r=reqData.find(x=>x.id===id);
-  if(r&&r.buyer_unread){
+  if(r&&r.buyer_unread&&!VIEW_ONLY){
     r.buyer_unread=false; updateReqBadge(); if(currentPage==='requests') renderRequestsPage();
     SB.patch(`requests?id=eq.${id}`,{buyer_unread:false}).catch(()=>{});
   }
@@ -6159,7 +6182,7 @@ async function refreshReqModal(){
       ${r.customer?`<div><b>Customer</b><span>${esc(r.customer)}</span></div>`:''}
       <div><b>Type</b><span>${esc(r.request_type)}</span></div>
       ${r.request_type==='Customer Service'?`<div><b>SKU</b><span>${esc(r.title)}</span></div><div><b>CS Ticket</b><span>${esc(r.cs_ticket||'—')}</span></div>`:''}
-      <div><b>From</b><span>${esc(reqName(r.requested_by))}</span></div>
+      <div><b>From</b><span>${esc(reqName(r.requested_by))}${r.department?' · '+esc(r.department):''}</span></div>
       <div><b>Received</b><span>${fmtEntryDate(r.created_at.slice(0,10),true)}</span></div>
       ${r.target_price?`<div><b>Ideal / target sales price</b><span>${esc(r.target_price)}</span></div>`:''}
       ${r.acknowledged_at?`<div><b>Picked up</b><span>${fmtEntryDate(r.acknowledged_at.slice(0,10),true)} · ${esc(reqName(r.acknowledged_by))}</span></div>`:''}
@@ -6420,11 +6443,13 @@ function startBCBackgroundSync(){
   setInterval(runBCBackgroundSync, 5 * 60 * 1000);
 }
 
+let VIEW_ONLY=false;
 async function bootApp(){
   // Sales reps have their own page; this tracker is buyers-only (enforced by RLS too)
   try{
     const role = await SB.req('POST','rpc/my_role',{});
-    if(role==='sales'){ location.replace('request.html'); return; }
+    if(role==='requester'||role==='sales'){ location.replace('request.html'); return; } // portal users
+    if(role==='viewer'){ VIEW_ONLY=true; document.body.classList.add('view-only'); }
     if(role===null) toast('Your login isn\'t set up for the tracker yet — ask Syrus to add you','error');
   }catch(e){ /* requests migration not run yet — carry on as before */ }
   const s = getStoredSession();
@@ -6433,7 +6458,7 @@ async function bootApp(){
   loadConfig();
   loadTheme();
   populateCategoryFilter();
-  loadData().then(()=>{ startBCBackgroundSync(); loadQarmaData(); });
+  loadData().then(()=>{ if(!VIEW_ONLY) startBCBackgroundSync(); loadQarmaData(); }); // viewers never write BC data
   loadAirmail();
   Promise.all([loadTodo(), loadReports()]).then(()=>updateNotifBadge());
   loadRequests();
