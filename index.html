@@ -3816,7 +3816,7 @@ function renderImagesTab(item){
     </div>
     <div class="drop-zone" id="dropZone" onclick="$('imgFileInput').click()">
       <input type="file" id="imgFileInput" accept="image/jpeg,image/png,image/webp,video/mp4" multiple onchange="handleImgUpload(event)">
-      <div>📷 Drag & drop or click to browse</div>
+      <div>📷 Drag & drop, paste (Ctrl+V) or click to browse</div>
       <div style="font-size:.75rem;margin-top:4px;color:var(--text3)">JPG, PNG, WEBP · MP4 · Max 50MB each · Renamed to "${esc(winSafeName(SP_TARGETS.media.fileName(item,{name:'x.jpg'})))}"</div>
     </div>
     <div class="image-grid" id="imageGrid">${thumbsHTML(item)}</div>`;
@@ -3901,10 +3901,60 @@ function thumbsHTML(item){
 
 function setupImgDrop(){
   const z=$('dropZone'); if(!z) return;
-  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag-over');});
+  z.addEventListener('dragover',e=>{e.preventDefault();try{e.dataTransfer.dropEffect='copy';}catch(_){}z.classList.add('drag-over');});
   z.addEventListener('dragleave',()=>z.classList.remove('drag-over'));
-  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag-over');handleImgFiles(e.dataTransfer.files);});
+  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag-over');handleMediaDrop(e.dataTransfer);});
 }
+
+// Give a file a proper extension when the source (Outlook, clipboard) didn't include one
+const MEDIA_MIME_EXT={'image/jpeg':'jpg','image/jpg':'jpg','image/png':'png','image/webp':'webp','video/mp4':'mp4'};
+function withExt(f){
+  if(/\.[a-z0-9]{2,5}$/i.test(f.name||'')) return f;
+  const ext=MEDIA_MIME_EXT[f.type]; if(!ext) return f;
+  return new File([f],(f.name||'image')+'.'+ext,{type:f.type});
+}
+function filesFromTransfer(dt){
+  let out=[...(dt?.files||[])];
+  if(!out.length&&dt?.items) out=[...dt.items].filter(i=>i.kind==='file').map(i=>i.getAsFile()).filter(Boolean);
+  return out.map(withExt);
+}
+
+// Drop from desktop, classic Outlook, or anything that hands over real files.
+// If the source only hands over a link (new Outlook / Outlook on the web), try to fetch it,
+// otherwise explain and suggest copy + paste.
+async function handleMediaDrop(dt){
+  const files=filesFromTransfer(dt);
+  if(files.length) return handleImgFiles(files);
+  const types=[...(dt?.types||[])];
+  let url='';
+  try{
+    const dl=dt.getData('DownloadURL'); // "mime:filename:url"
+    if(dl){ const m=dl.match(/^[^:]+:([^:]+):(.+)$/); if(m) url=m[2]; }
+    if(!url) url=(dt.getData('text/uri-list')||'').split(/\r?\n/).find(l=>l&&!l.startsWith('#'))||'';
+  }catch(_){}
+  if(url&&/^https?:/i.test(url)){
+    try{
+      const r=await fetch(url,{credentials:'include'});
+      if(!r.ok) throw new Error(r.status);
+      const b=await r.blob();
+      if(!/^image\/|^video\/mp4/.test(b.type)) throw new Error('not an image');
+      const name=decodeURIComponent((url.split('?')[0].split('/').pop()||'image'));
+      return handleImgFiles([withExt(new File([b],name,{type:b.type}))]);
+    }catch(_){}
+  }
+  console.log('[media-drop] nothing usable — types:',types,'url:',url);
+  toast(`That app didn't hand the image over to the browser${types.length?' (it sent: '+types.join(', ')+')':''}. In Outlook, right-click the image › Copy, then press Ctrl+V here.`,'error');
+}
+
+// Ctrl+V on the Media tab: paste copied images (from Outlook, screenshots, websites…)
+document.addEventListener('paste',e=>{
+  if(!$('imageGrid')||!currentItemId) return;
+  const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  const files=filesFromTransfer(e.clipboardData).filter(f=>MEDIA_MIME_EXT[f.type]);
+  if(!files.length) return;
+  e.preventDefault();
+  handleImgFiles(files);
+});
 
 function handleImgUpload(e){ handleImgFiles(e.target.files); }
 
