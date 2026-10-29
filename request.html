@@ -170,12 +170,18 @@ body.light-mode .days-green{color:#15803d}body.light-mode .days-amber{color:#b45
 body.light-mode .dl-ok{color:#15803d}body.light-mode .dl-soon{color:#b45309}body.light-mode .dl-today{color:#c2410c}
 body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
 .tl-list{margin-top:12px;display:flex;flex-direction:column;gap:6px}
-.tl-row{display:grid;grid-template-columns:78px 1fr;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 11px;font-size:.86rem;line-height:1.45}
+.tl-row{display:grid;grid-template-columns:62px 1fr;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 11px;font-size:.86rem;line-height:1.45}
 .tl-row.latest-row{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
 .tl-row.future{border-style:dashed;opacity:.85}
 .tl-date{font-family:'DM Mono',monospace;font-size:.76rem;color:var(--text3);padding-top:1px}
 .tl-note{white-space:pre-wrap;word-break:break-word}
-.tl-by{font-size:.7rem;color:var(--text3);margin-left:6px;font-weight:600}
+.tl-by{font-size:.72rem;font-weight:700;letter-spacing:.02em;margin-left:6px}
+.file-group{margin-bottom:16px}
+.f-row{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;margin-top:6px;cursor:pointer}
+.f-row:hover{border-color:var(--accent)}
+.f-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.f-row .k{font-size:.72rem;color:var(--text3);white-space:nowrap}
+.sp-note{font-size:.76rem;color:var(--text3);margin-top:12px}
 
 /* detail drawer */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:80;display:flex;justify-content:flex-end;backdrop-filter:blur(3px)}
@@ -643,12 +649,12 @@ function renderList(){
     const items=progress.filter(p=>p.request_id===r.id);
     return `<div class="req-card${r.rep_unread?' unread':''}" onclick="openDetail('${r.id}')">
       <div>
-        <div class="req-top"><span class="ref">${esc(r.ref)}</span></div>
+        <div class="req-top"><span class="ref">${esc(displayRef(r))}</span></div>
         <div class="req-title">${reqTitle(r)}</div>
         <div class="req-meta">${r.customer?`<span>${esc(r.customer)}</span>`:''}<span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}${r.requested_by!==me?' by '+esc(nameOf(r.requested_by)):''}</span>${assigneeHTML(r)}</div>
       </div>
       <div class="req-side">
-        <span class="pill ${stCls(r.status)}">${esc(r.status)}</span>
+        <span style="display:inline-flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${statusHTML(r)}</span>
         ${r.rep_unread?'<span class="new-dot">● Update</span>':''}
         ${r.status==='Complete'&&r.completion_notes?'<span class="done-tag">📄 Details ready</span>':''}
       </div>
@@ -691,7 +697,7 @@ function progressHTML(p){
 
 // ═══ DETAIL ═══
 // Three views, like the tabs on an item card: Request · Timeline · Messages
-let detailFiles=[], detailMsgs=[], detailTimeline=[], blobCache={}, detailTab='info';
+let detailFiles=[], detailMsgs=[], detailTimeline=[], detailItemFiles=[], blobCache={}, detailTab='info';
 async function openDetail(id){
   openId=id; detailTab='info'; $('detailOv').classList.remove('hidden');
   $('dTabs').innerHTML=''; $('dBody').innerHTML='<div class="hint">Loading…</div>';
@@ -707,10 +713,11 @@ function setDetailTab(t){ detailTab=t; renderDetailView(); if(t==='messages') se
 async function renderDetail(id,quiet){
   const r=requests.find(x=>x.id===id); if(!r){ closeDetail(); return; }
   try{
-    [detailFiles,detailMsgs,detailTimeline]=await Promise.all([
+    [detailFiles,detailMsgs,detailTimeline,detailItemFiles]=await Promise.all([
       SB.get(`request_files?request_id=eq.${id}&select=*&order=created_at.asc`),
       SB.get(`request_messages?request_id=eq.${id}&select=*&order=created_at.asc`),
-      SB.rpc('request_timeline',{p_id:id}).catch(()=>[])
+      SB.rpc('request_timeline',{p_id:id}).catch(()=>[]),
+      SB.rpc('request_item_files',{p_id:id}).catch(()=>[])
     ]);
   }catch(e){ if(!quiet) toast('Could not load details: '+e.message,'error'); }
   if(openId!==id) return;
@@ -721,17 +728,21 @@ function renderDetailView(){
   const id=openId; const r=requests.find(x=>x.id===id); if(!r) return;
   const draft=$('msgText')?.value||'';
   const items=progress.filter(p=>p.request_id===id);
-  $('dRef').textContent=r.ref;
-  $('dPills').innerHTML=`<span class="pill ${stCls(r.status)}">${esc(r.status)}</span>`;
+  $('dRef').textContent=displayRef(r);
+  $('dPills').innerHTML=statusHTML(r);
   $('dTitle').innerHTML=reqTitle(r);
   const tlCount=detailTimeline.length;
   const tab=(k,label,extra)=>`<button class="dtab${detailTab===k?' active':''}" onclick="setDetailTab('${k}')">${label}${extra||''}</button>`;
   $('dTabs').innerHTML=
     tab('info','📋 Request')+
     tab('timeline','🕒 Timeline',items.length?`<span class="cnt">${tlCount}</span>`:'')+
+    tab('files','📁 Files',(()=>{ const n=filesForView(false).length; return n?`<span class="cnt">${n}</span>`:''; })())+
+    tab('media','🖼️ Media',(()=>{ const n=filesForView(true).length; return n?`<span class="cnt">${n}</span>`:''; })())+
     tab('messages','💬 Messages',detailMsgs.length?`<span class="cnt">${detailMsgs.length}</span>`:'');
   const body=$('dBody');
   if(detailTab==='timeline') body.innerHTML=timelineViewHTML(r,items);
+  else if(detailTab==='files') body.innerHTML=filesViewHTML(r,false);
+  else if(detailTab==='media') body.innerHTML=filesViewHTML(r,true);
   else if(detailTab==='messages') body.innerHTML=messagesViewHTML(r);
   else body.innerHTML=infoViewHTML(r);
   if(draft&&$('msgText')) $('msgText').value=draft;
@@ -740,7 +751,7 @@ function renderDetailView(){
 
 // 1 ── Request: what was submitted
 function infoViewHTML(r){
-  const repFiles=detailFiles.map((f,i)=>[f,i]).filter(([f])=>!f.is_completion);
+  const repFiles=detailFiles.map((f,i)=>[f,i]).filter(([f])=>!f.is_completion&&!f.shared_by_buyer);
   const doneFiles=detailFiles.map((f,i)=>[f,i]).filter(([f])=>f.is_completion);
   return `
     ${r.status==='Complete'?`<div class="done-box">
@@ -771,14 +782,18 @@ function infoViewHTML(r){
 // 2 ── Timeline: every update on each linked item card, oldest → latest, with its deadlines
 function deadlineChip(d){
   const t=d.type?esc(d.type)+' · ':'';
-  if(d.done) return `<span class="dl dl-done" title="Completed${d.doneDate?' '+fmtDate(d.doneDate):''}">✓ ${t}${fmtDate(d.date)}</span>`;
+  if(d.done) return `<span class="dl dl-done" title="Completed${d.doneDate?' '+dmy(d.doneDate):''}">✓ ${t}${dmy(d.date)}</span>`;
   const n=daysUntil(d.date);
-  if(n>3)   return `<span class="dl dl-ok">⏱ ${t}${fmtDate(d.date)} · ${n}d</span>`;
-  if(n>0)   return `<span class="dl dl-soon">⏱ ${t}${fmtDate(d.date)} · ${n}d</span>`;
+  if(n>3)   return `<span class="dl dl-ok">⏱ ${t}${dmy(d.date)} · ${n}d</span>`;
+  if(n>0)   return `<span class="dl dl-soon">⏱ ${t}${dmy(d.date)} · ${n}d</span>`;
   if(n===0) return `<span class="dl dl-today">⏱ ${t}Due today</span>`;
-  return `<span class="dl dl-over">⏱ ${t}${fmtDate(d.date)} · ${-n}d overdue</span>`;
+  return `<span class="dl dl-over">⏱ ${t}${dmy(d.date)} · ${-n}d overdue</span>`;
 }
+// dd/mm, adding /yy when the date isn't this year
+const dmy=iso=>ddmm(iso,(iso||'').slice(0,4)!==todayISO().slice(0,4));
+function ddmm(iso,withYear){ const p=(iso||'').slice(0,10).split('-'); return p.length===3?(withYear?`${p[2]}/${p[1]}/${p[0].slice(2)}`:`${p[2]}/${p[1]}`):iso; }
 function timelineViewHTML(r,items){
+  const multiYear=new Set(detailTimeline.map(e=>(e.date||'').slice(0,4))).size>1;
   if(!items.length) return `<div class="hint">${r.status==='New'?'Waiting for the buying team to pick this up.':'No item card has been created for this request yet. Its full timeline will appear here as soon as one is.'}</div>`;
   const today=todayISO();
   return items.map(p=>{
@@ -791,15 +806,48 @@ function timelineViewHTML(r,items){
         <span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center">${stagePill(p.stage)}${daysBadge(p)}</span></div>
       ${dls.length?`<div class="tl-dls">${dls.map(deadlineChip).join('')}</div>`:''}
       ${p.ship_date||p.eta||p.archived?`<div class="prog-foot">
-        ${p.ship_date?`<span>Ships ${fmtDate(p.ship_date)}</span>`:''}
-        ${p.eta?`<span>Due in UK ${fmtDate(p.eta)}</span>`:''}
+        ${p.ship_date?`<span>Ships ${dmy(p.ship_date)}</span>`:''}
+        ${p.eta?`<span>Due in UK ${dmy(p.eta)}</span>`:''}
         ${p.archived?'<span>Archived</span>':''}</div>`:''}
       <div class="tl-list">${entries.length?entries.map(e=>`<div class="tl-row${e.entry_id===latestId?' latest-row':''}${e.date>today?' future':''}">
-          <div class="tl-date">${fmtDate(e.date)}${e.date>today?'<div style="font-size:.66rem;color:var(--accent)">Scheduled</div>':''}</div>
-          <div class="tl-note">${esc(e.note)}${e.author?`<span class="tl-by">${esc(nameOf(e.author))}</span>`:''}</div>
+          <div class="tl-date">${ddmm(e.date,multiYear)}${e.date>today?'<div style="font-size:.66rem;color:var(--accent)">Scheduled</div>':''}</div>
+          <div class="tl-note">${esc(e.note)}${(t=>t?`<span class="tl-by" style="color:${t.color}" title="${esc(nameOf(e.author))}">${t.initials}</span>`:'')(userTag(e.author))}</div>
         </div>`).join(''):'<div class="hint">No updates logged yet.</div>'}</div>
     </div>`;
   }).join('');
+}
+
+// 3/4 ── Files & Media: shared by the buying team on this ticket + everything on the linked item cards
+const KIND_LABEL={margin:'Margin sheet',spec:'Spec form',quote:'Quotation',request:'Sales request file',media:'Media'};
+const isImgName=n=>/\.(jpe?g|png|webp|gif|heic)$/i.test(n||'');
+const isVidName=n=>/\.(mp4|mov|webm)$/i.test(n||'');
+function filesForView(media){
+  const out=[];
+  detailFiles.forEach((f,i)=>{ if(!(f.shared_by_buyer||f.is_completion)) return;
+    const m=f.is_image||isImgName(f.name)||isVidName(f.name);
+    if(m===media) out.push({src:'ticket',i,name:f.name,url:f.sp_url||'',sp:!!f.sp_url,group:'From the buying team'}); });
+  detailItemFiles.forEach(f=>{
+    const m=f.is_image||isImgName(f.name)||isVidName(f.name);
+    if(m===media) out.push({src:'item',name:f.name,url:f.url,sp:!!f.sp_path,kind:f.is_upload?(KIND_LABEL[f.kind]||'File'):'Link',group:`${f.item_name}${f.ref_code?' · '+f.ref_code:''}`}); });
+  return out;
+}
+function openViewFile(src,key){
+  if(src==='ticket'){ const f=detailFiles[key]; if(f&&f.sp_url) window.open(f.sp_url,'_blank','noopener'); else openFile(key); return; }
+  window.open(key,'_blank','noopener');
+}
+function filesViewHTML(r,media){
+  const list=filesForView(media);
+  if(!list.length) return `<div class="hint">${media?'No images or videos yet.':'No files yet.'} Anything the buying team shares on this request${progress.some(p=>p.request_id===r.id)?' or adds to its item cards':''} will show here.</div>`;
+  const groups=[...new Set(list.map(x=>x.group))];
+  const open=x=>x.src==='ticket'?`openViewFile('ticket',${x.i})`:`openViewFile('item','${esc(x.url).replace(/'/g,"\\'")}')`;
+  return groups.map(g=>{
+    const rows=list.filter(x=>x.group===g);
+    return `<div class="file-group"><div class="sec-title">${esc(g)} (${rows.length})</div>${media
+      ?`<div class="thumbs">${rows.map(x=>`<div class="thumb" onclick="${open(x)}" title="${esc(x.name)}">
+          <span><span class="ic">${isVidName(x.name)?'🎬':'🖼️'}</span>${esc(x.name)}</span>
+          ${!isVidName(x.name)&&x.url?`<img src="${esc(x.sp?spThumb(x.url):x.url)}" alt="" onerror="this.remove()">`:''}</div>`).join('')}</div>`
+      :rows.map(x=>`<div class="f-row" onclick="${open(x)}" title="${esc(x.name)}"><span>${fileIcon(x.name)}</span><span class="nm">${esc(x.name)}</span>${x.kind?`<span class="k">${esc(x.kind)}</span>`:''}<span class="k">↗</span></div>`).join('')}</div>`;
+  }).join('')+(list.some(x=>x.sp)?'<div class="sp-note">Files open in SharePoint — you\'ll need to be signed in with your Birlea Microsoft account.</div>':'');
 }
 
 // 3 ── Messages: between the requester and the buying team
@@ -809,6 +857,24 @@ function messagesViewHTML(r){
       <div class="msg-box"><textarea id="msgText" placeholder="Message ${r.assigned_to?esc(nameOf(r.assigned_to)):'the buying team'}…"></textarea><button class="btn" onclick="sendMsg('${r.id}')">Send</button></div>
     </div>`;
 }
+// Same initials + colours as the Buying Tracker timeline
+const USER_TAGS={'syrus.cripps@birlea.com':{initials:'SC',color:'#4f6ef7'},'michael.prime@birlea.com':{initials:'MP',color:'#ef4444'},'bethany.herron@birlea.com':{initials:'BH',color:'#22c55e'}};
+function userTag(email){
+  if(!email) return null;
+  const t=USER_TAGS[email.toLowerCase()]; if(t) return t;
+  const parts=email.split('@')[0].replace(/[^a-zA-Z.]/g,'').split('.').filter(Boolean);
+  return {initials:((parts[0]?.[0]||'?')+(parts[1]?.[0]||'')).toUpperCase(),color:'#8b90a0'};
+}
+// Ref: the linked item card's ref code once there is one, else the REQ number
+function displayRef(r){ const p=progress.find(x=>x.request_id===r.id&&x.ref_code); return p?p.ref_code:r.ref; }
+// Status: Complete, else the linked item card status, else In Progress
+function statusHTML(r){
+  if(r.status==='Complete') return `<span class="pill st-Complete">Complete</span>`;
+  const st=[...new Set(progress.filter(x=>x.request_id===r.id).map(x=>x.stage))];
+  return st.length?st.map(stagePill).join(' '):`<span class="pill st-In-Progress">In Progress</span>`;
+}
+const SP_HOST='https://birleafurniture.sharepoint.com';
+const spThumb=url=>SP_HOST+'/_layouts/15/getpreview.ashx?path='+encodeURIComponent(url)+'&resolution=1';
 const TEAM_NAMES={'syrus.cripps@birlea.com':'Syrus','bethany.herron@birlea.com':'Beth','michael.prime@birlea.com':'Michael'};
 function nameOf(email){ if(TEAM_NAMES[(email||'').toLowerCase()]) return TEAM_NAMES[email.toLowerCase()]; const n=(email||'').split('@')[0].split('.')[0]; return n?n[0].toUpperCase()+n.slice(1):email; }
 const isImg=f=>/^image\//.test(f.mime)||/\.(jpe?g|png|webp|gif|heic)$/i.test(f.name);
@@ -831,6 +897,7 @@ function hydrateThumbs(){
 }
 async function openFile(i){
   const f=detailFiles[i]; if(!f) return;
+  if(f.sp_url){ window.open(f.sp_url,'_blank','noopener'); return; }
   try{
     const u=await getBlobUrl(f);
     if(isImg(f)){ $('lbContent').innerHTML=`<img src="${u}" alt="">`; $('lightbox').classList.remove('hidden'); return; }
