@@ -273,6 +273,10 @@ body.light-mode .days-green{color:#15803d}body.light-mode .days-amber{color:#b45
           <p id="listSub">Track every request you've sent and see the item cards as they move through buying.</p>
         </div>
         <div class="spacer"></div>
+        <div class="seg hidden" id="scopeSeg" title="Whose requests to show">
+          <button class="active" data-s="mine">My requests</button>
+          <button data-s="dept" id="scopeDeptBtn">All team</button>
+        </div>
         <div class="seg" id="filterSeg">
           <button class="active" data-f="open">Open</button>
           <button data-f="closed">Closed</button>
@@ -535,7 +539,8 @@ async function boot(){
   try{ myRole=await SB.rpc('my_role'); }catch(e){ myRole=null; }
   $('trackerLink').classList.toggle('hidden',myRole!=='buyer'&&myRole!=='viewer');
   try{ const u=await SB.get(`app_users?email=eq.${encodeURIComponent(me)}&select=department`); myDept=u&&u[0]?u[0].department:''; }catch(e){ myDept=''; }
-  if(myDept){ $('listTitle').textContent=`${myDept} requests`; $('listSub').textContent=`Every request your department has sent, and the item cards as they move through buying.`; }
+  if(myDept){ $('scopeDeptBtn').textContent=`All ${myDept}`; $('scopeSeg').classList.remove('hidden'); }
+  setScope(scope);
   if(!myRole){ $('noRole').classList.remove('hidden'); $('listView').classList.add('hidden'); return; }
   await loadAll();
   clearInterval(pollTimer); pollTimer=setInterval(poll,POLL_MS);
@@ -583,10 +588,28 @@ function dueHTML(r){
   const txt=open?(d<0?`${-d}d overdue`:d===0?'due today':`due in ${d}d`):'';
   return `<span class="${open&&d<0?'due-late':''}">Needed by ${fmtDate(r.needed_by)}${txt?' · '+txt:''}</span>`;
 }
+// Scope: just my requests (default) or everything my department has raised
+let scope='mine'; // always opens on the user's own requests
+function setScope(sc){
+  scope=(sc==='dept'&&myDept)?'dept':'mine';
+  document.querySelectorAll('#scopeSeg button').forEach(b=>b.classList.toggle('active',b.dataset.s===scope));
+  if(scope==='dept'){
+    $('listTitle').textContent=`All ${myDept} requests`;
+    $('listSub').textContent=`Every request the ${myDept} team has sent, and the item cards as they move through buying.`;
+  }else{
+    $('listTitle').textContent='My requests';
+    $('listSub').textContent=`Track every request you've sent and see the item cards as they move through buying.`;
+  }
+  renderList();
+}
+document.querySelectorAll('#scopeSeg button').forEach(b=>b.addEventListener('click',()=>setScope(b.dataset.s)));
 function renderList(){
-  const list=requests.filter(r=>filter==='all'||(filter==='open'?OPEN_ST.has(r.status):!OPEN_ST.has(r.status)));
+  const list=requests
+    .filter(r=>scope==='dept'||r.requested_by===me)
+    .filter(r=>filter==='all'||(filter==='open'?OPEN_ST.has(r.status):!OPEN_ST.has(r.status)));
   if(!list.length){
-    $('reqList').innerHTML=`<div class="empty"><h3>${filter==='open'?'No open requests':'Nothing here yet'}</h3><p>${filter==='open'?'Tap "+ New request" to send one to the buying team.':''}</p></div>`;
+    const who=scope==='dept'?`the ${esc(myDept)} team`:'you';
+    $('reqList').innerHTML=`<div class="empty"><h3>${filter==='open'?'No open requests':'Nothing here yet'}</h3><p>${filter==='open'?(scope==='mine'?'Tap "+ New request" to send one to the buying team.':`No open requests from ${who}.`):''}</p></div>`;
     return;
   }
   $('reqList').innerHTML=list.map(r=>{
