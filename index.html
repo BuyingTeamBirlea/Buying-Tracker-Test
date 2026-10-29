@@ -665,6 +665,13 @@ body.view-only #rqAssign ~ .btn,
 body.view-only [onclick^="createItemFromRequest"],
 body.view-only [onclick^="copyRequestFilesToSp"],
 body.view-only #menuDropdown button:not([onclick="signOut()"]):not([onclick^="export"]){display:none!important}
+.rq-pick-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.rq-pick{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;font-size:.86rem}
+.rq-pick:hover{border-color:var(--accent)}
+.rq-pick .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rq-pick .sup{font-size:.74rem;color:var(--text3);white-space:nowrap}
+.rq-unlink{background:none;border:none;color:var(--text3);cursor:pointer;font-size:.9rem;padding:2px 4px;border-radius:4px}
+.rq-unlink:hover{color:var(--red);background:rgba(239,68,68,.1)}
 .rq-done{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.3);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px}
 .rq-done .rq-desc{background:var(--bg2);margin:8px 0 10px}
 .rq-drop{border:2px dashed var(--border2);border-radius:var(--radius);padding:18px;text-align:center;color:var(--text2);cursor:pointer;font-size:.86rem;transition:all .15s}
@@ -844,6 +851,7 @@ body.view-only #menuDropdown button:not([onclick="signOut()"]):not([onclick^="ex
         <option value="unassigned">Unassigned</option>
         <option value="all">All</option>
       </select>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="openReqNew()" title="Create a request on someone's behalf, e.g. for work already under way">＋ New request</button>
     </div>
     <div class="logi-table-wrap">
       <table>
@@ -1258,6 +1266,67 @@ body.view-only #menuDropdown button:not([onclick="signOut()"]):not([onclick^="ex
     </div>
     <div class="modal-body" id="rqBody"></div>
     <div class="modal-footer" id="rqFooter"></div>
+  </div>
+</div>
+
+<!-- LINK EXISTING ITEM CARD MODAL -->
+<div class="overlay hidden" id="reqLinkOverlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div><div class="modal-title">Link an existing item card</div>
+        <div style="font-size:.8rem;color:var(--text3);margin-top:3px" id="rlSub"></div></div>
+      <button class="modal-close" onclick="closeReqLink()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="search-wrap" style="max-width:none"><span class="search-icon">🔍</span>
+        <input type="text" id="rlSearch" placeholder="Search name, ref code, supplier…" oninput="renderReqLinkList()"></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text2);margin-top:8px;cursor:pointer">
+        <input type="checkbox" id="rlArchived" onchange="renderReqLinkList()"> Include archived cards</label>
+      <div class="rq-pick-list" id="rlList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW REQUEST (ON SOMEONE'S BEHALF) MODAL -->
+<div class="overlay hidden" id="reqNewOverlay">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <div><div class="modal-title">New request</div>
+        <div style="font-size:.8rem;color:var(--text3);margin-top:3px">Raised on someone's behalf. It appears on their request page straight away.</div></div>
+      <button class="modal-close" onclick="closeReqNew()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field"><label>Requested by *</label><select id="rnWho"></select></div>
+        <div class="field"><label>Request type *</label><select id="rnType" onchange="reqNewTypeChanged()">
+          <option>New Product Development</option><option>Margin Sheets</option><option>BC Set Up</option>
+          <option>PIM Assistance</option><option>Customer Service</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="field" id="rnCustField"><label>Customer *</label><select id="rnCustomer">
+          <option value="">Select…</option><option>Happy Beds</option><option>BHF</option><option>Wayfair</option><option>NEXT</option>
+          <option>Marketplaces</option><option>MattressOnline</option><option>MattressNextDay</option></select></div>
+        <div class="field" id="rnCsField" style="display:none"><label>CS Ticket *</label><input type="text" id="rnCs" placeholder="e.g. CS-104582"></div>
+        <div class="field"><label id="rnTitleLabel">Title *</label><input type="text" id="rnTitle" maxlength="140"></div>
+      </div>
+      <div class="form-row form-row-1">
+        <div class="field"><label id="rnDescLabel">Details</label><textarea id="rnDesc"></textarea></div>
+      </div>
+      <div class="form-row">
+        <div class="field" id="rnPriceField"><label>Target price (optional)</label><input type="text" id="rnPrice"></div>
+        <div class="field"><label>Status</label><select id="rnStatus">
+          <option>In Progress</option><option>New</option><option>Acknowledged</option><option>Complete</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Worked on by</label><select id="rnAssign"></select></div>
+        <div class="field"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeReqNew()">Cancel</button>
+      <div class="spacer"></div>
+      <button class="btn" id="rnSaveBtn" onclick="saveReqNew()">Create request</button>
+    </div>
   </div>
 </div>
 
@@ -5423,13 +5492,17 @@ $('deadlineOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget
 $('airmailOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeAirmailModal(); });
 $('reqOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeReqModal(); });
 $('reqDoneOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeReqDone(); });
+$('reqLinkOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeReqLink(); });
+$('reqNewOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeReqNew(); });
 (function(){ const z=$('rdDrop');
   z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('over');});
   z.addEventListener('dragleave',()=>z.classList.remove('over'));
   z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('over');rdAddFiles(e.dataTransfer.files);}); })();
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){ if(!$('reqDoneOverlay').classList.contains('hidden')){ closeReqDone(); return; } closeReqModal(); closeDetail(); closeAdd(); closeConfirm(); closeImgOverlay(); closeVidOverlay(); closeDup(); closeDeadlineModal(); closeAirmailModal(); }
+  if(e.key==='Escape'){ if(!$('reqDoneOverlay').classList.contains('hidden')){ closeReqDone(); return; }
+    if(!$('reqLinkOverlay').classList.contains('hidden')){ closeReqLink(); return; }
+    if(!$('reqNewOverlay').classList.contains('hidden')){ closeReqNew(); return; } closeReqModal(); closeDetail(); closeAdd(); closeConfirm(); closeImgOverlay(); closeVidOverlay(); closeDup(); closeDeadlineModal(); closeAirmailModal(); }
   if(!$('imgOverlay').classList.contains('hidden')){
     if(e.key==='ArrowLeft') prevImg(); if(e.key==='ArrowRight') nextImg();
     if(e.key==='+') zoomIn(); if(e.key==='-') zoomOut();
@@ -6108,6 +6181,99 @@ async function openReqModal(id){
 }
 function closeReqModal(){ reqOpenId=null; $('reqOverlay')?.classList.add('hidden'); }
 
+// ── Link an existing item card to a request (for work that started before the ticket) ──
+let _rlReqId=null;
+function openReqLink(reqId){
+  const r=reqData.find(x=>x.id===reqId); if(!r) return;
+  _rlReqId=reqId;
+  $('rlSub').textContent=`${r.ref} · ${reqTitleText(r)} — ${reqName(r.requested_by)} will see the card's full timeline`;
+  $('rlSearch').value=''; $('rlArchived').checked=false;
+  renderReqLinkList();
+  $('reqLinkOverlay').classList.remove('hidden');
+  setTimeout(()=>$('rlSearch').focus(),50);
+}
+function closeReqLink(){ $('reqLinkOverlay')?.classList.add('hidden'); _rlReqId=null; }
+function renderReqLinkList(){
+  const q=($('rlSearch').value||'').trim().toLowerCase();
+  const withArch=$('rlArchived').checked;
+  const linked=new Set(reqLinks.filter(l=>l.request_id===_rlReqId).map(l=>l.item_id));
+  const list=data.filter(i=>!linked.has(i.id)&&(withArch||!i.archived)&&(!q||matchesItemSearch(i,q)))
+    .sort((a,b)=>a.name.localeCompare(b.name)).slice(0,80);
+  $('rlList').innerHTML=list.length?list.map(i=>`<div class="rq-pick" onclick="linkReqItem('${i.id}')">
+      <span class="rq-ref">${esc(i.refCode||'')}</span><span class="nm">${esc(i.name)}</span>
+      <span class="sup">${esc(i.supplier||'')}</span>${stageBadge(i.stage)}${i.archived?'<span class="badge badge-archived">Archived</span>':''}</div>`).join('')
+    :'<div style="font-size:.84rem;color:var(--text3);padding:6px 2px">No matching item cards.</div>';
+}
+async function linkReqItem(itemId){
+  const reqId=_rlReqId; const r=reqData.find(x=>x.id===reqId); const item=data.find(i=>i.id===itemId);
+  if(!r||!item) return;
+  closeReqLink();
+  try{
+    await SB.post('request_items',{request_id:reqId,item_id:itemId});
+    if(r.status==='New'||r.status==='Acknowledged') await SB.patch(`requests?id=eq.${reqId}`,{status:'In Progress'});
+    await loadRequests();
+    if(reqOpenId===reqId) refreshReqModal();
+    toast(`${item.name} linked to ${r.ref} ✓`);
+  }catch(e){ toast('Link failed: '+e.message,'error'); }
+}
+function unlinkReqItem(reqId,itemId){
+  const r=reqData.find(x=>x.id===reqId); const item=data.find(i=>i.id===itemId);
+  confirmAction('Unlink item card?',`"${item?.name||'This card'}" will no longer show on ${r?.ref||'the request'}. The item card itself is not changed.`,async()=>{
+    try{
+      await SB.delete(`request_items?request_id=eq.${reqId}&item_id=eq.${encodeURIComponent(itemId)}`);
+      await loadRequests();
+      if(reqOpenId===reqId) refreshReqModal();
+      toast('Unlinked');
+    }catch(e){ toast('Unlink failed: '+e.message,'error'); }
+  });
+}
+
+// ── New request on someone's behalf (e.g. back-filling tickets for work already done) ──
+let _rnRequesters=[];
+async function openReqNew(){
+  try{ _rnRequesters=await SB.get('app_users?role=eq.requester&select=email,display_name,department&order=department.asc,display_name.asc'); }
+  catch(e){ _rnRequesters=[]; }
+  if(!_rnRequesters.length){ toast('No request-page users set up yet','error'); return; }
+  const depts=[...new Set(_rnRequesters.map(u=>u.department||'Other'))];
+  $('rnWho').innerHTML='<option value="">Select…</option>'+depts.map(d=>`<optgroup label="${esc(d)}">${
+    _rnRequesters.filter(u=>(u.department||'Other')===d).map(u=>`<option value="${esc(u.email)}">${esc(u.display_name||reqName(u.email))}</option>`).join('')}</optgroup>`).join('');
+  const meEmail=(getStoredSession()?.user?.email||'').toLowerCase();
+  $('rnAssign').innerHTML='<option value="">— Unassigned —</option>'+reqBuyers.map(b=>`<option value="${b.email}"${b.email===meEmail?' selected':''}>${b.display_name}</option>`).join('');
+  ['rnTitle','rnCs','rnDesc','rnPrice'].forEach(k=>$(k).value='');
+  $('rnCustomer').value=''; $('rnType').value='New Product Development'; $('rnStatus').value='In Progress';
+  reqNewTypeChanged();
+  $('rnSaveBtn').disabled=false; $('rnSaveBtn').textContent='Create request';
+  $('reqNewOverlay').classList.remove('hidden');
+}
+function closeReqNew(){ $('reqNewOverlay')?.classList.add('hidden'); }
+function reqNewTypeChanged(){
+  const t=$('rnType').value, cs=t==='Customer Service', npd=t==='New Product Development';
+  $('rnCustField').style.display=npd?'':'none';
+  $('rnPriceField').style.display=npd?'':'none';
+  $('rnCsField').style.display=cs?'':'none';
+  $('rnTitleLabel').textContent=cs?'SKU *':'Title *';
+  $('rnDescLabel').textContent=cs?'Query':'Details';
+}
+async function saveReqNew(){
+  const t=$('rnType').value, cs=t==='Customer Service', npd=t==='New Product Development';
+  const who=$('rnWho').value, title=$('rnTitle').value.trim(), cust=npd?$('rnCustomer').value:'', csNo=cs?$('rnCs').value.trim():'';
+  const miss=[!who&&'requested by',!title&&(cs?'SKU':'title'),npd&&!cust&&'customer',cs&&!csNo&&'CS ticket'].filter(Boolean);
+  if(miss.length){ toast('Please add: '+miss.join(', '),'error'); return; }
+  const u=_rnRequesters.find(x=>x.email===who)||{};
+  const btn=$('rnSaveBtn'); btn.disabled=true; btn.textContent='Creating…';
+  try{
+    const [row]=await SB.post('requests',{
+      requested_by:who, department:u.department||'', request_type:t, customer:cust, title, cs_ticket:csNo,
+      description:$('rnDesc').value.trim(), target_price:npd?$('rnPrice').value.trim():'',
+      status:$('rnStatus').value, assigned_to:$('rnAssign').value, buyer_unread:false, rep_unread:true
+    });
+    if(_reqKnownIds) _reqKnownIds.add(row.id); // you made it — no "new request" pop-up
+    closeReqNew(); await loadRequests();
+    toast(`${row.ref} created for ${u.display_name||reqName(who)} ✓`);
+    openReqModal(row.id); // straight into it, ready to link existing item cards
+  }catch(e){ btn.disabled=false; btn.textContent='Create request'; toast('Create failed: '+e.message,'error'); }
+}
+
 async function refreshReqModal(){
   const id=reqOpenId; const r=reqData.find(x=>x.id===id); if(!r){ closeReqModal(); return; }
   try{
@@ -6156,8 +6322,11 @@ async function refreshReqModal(){
     ${r.description?`<div class="rq-desc">${r.request_type==='Customer Service'?'<b>Query</b>\n':''}${esc(r.description)}</div>`:''}
     <div class="rq-sec">
       <div class="section-title" style="display:flex;align-items:center;gap:8px">Item cards (${items.length})
-        ${open?`<button class="btn btn-sm" style="margin-left:auto;text-transform:none;letter-spacing:0" onclick="createItemFromRequest('${id}')">➕ Create item card</button>`:''}</div>
-      ${items.length?`<div class="rq-links">${items.map(i=>`<div class="rq-link" onclick="closeReqModal();openDetail('${i.id}')"><span class="rq-ref">${esc(i.refCode||'')}</span><span style="flex:1">${esc(i.name)}</span><span class="badge ${STAGE_CLS[i.stage]||''}">${esc(i.stage)}</span></div>`).join('')}</div>`
+        <span style="margin-left:auto;display:flex;gap:6px;text-transform:none;letter-spacing:0">
+          <button class="btn btn-ghost btn-sm" onclick="openReqLink('${id}')" title="Attach an item card you've already been working on">🔗 Link existing</button>
+          ${open?`<button class="btn btn-sm" onclick="createItemFromRequest('${id}')">➕ Create item card</button>`:''}
+        </span></div>
+      ${items.length?`<div class="rq-links">${items.map(i=>`<div class="rq-link" onclick="closeReqModal();openDetail('${i.id}')"><span class="rq-ref">${esc(i.refCode||'')}</span><span style="flex:1">${esc(i.name)}</span><span class="badge ${STAGE_CLS[i.stage]||''}">${esc(i.stage)}</span><button class="rq-unlink" title="Unlink from this request (the item card itself is kept)" onclick="event.stopPropagation();unlinkReqItem('${id}','${i.id}')">✕</button></div>`).join('')}</div>`
         :`<div style="font-size:.84rem;color:var(--text3)">None yet. A ticket can create several cards (e.g. one per bed), or be completed without one.</div>`}
     </div>
     <div class="rq-sec">
