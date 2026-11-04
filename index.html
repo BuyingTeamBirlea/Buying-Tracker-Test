@@ -6580,13 +6580,7 @@ async function refreshReqModal(noFetch){
   }else if(_reqTab==='messages'){
     const oa=reqOpenAction(id);
     html=`<div class="rq-sec" style="margin-bottom:0">
-      ${open?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        ${oa?`<span class="rq-wait" title="${esc(oa.instruction)}" style="max-width:55%;overflow:hidden;text-overflow:ellipsis">⏳ Waiting on ${rep}: ${esc(oa.instruction)}</span>
-          <button class="btn btn-ghost btn-xs" onclick="cancelReqAct('${oa.id}')">✕ Cancel</button>`:''}
-        <div class="spacer" style="flex:1"></div>
-        <button class="btn btn-ghost btn-sm" onclick="openReqNotify()" title="Email ${rep} about an update">🔔 Notify ${rep}</button>
-        ${oa?'':`<button class="btn btn-ghost btn-sm" onclick="openReqAct()" title="Ask ${rep} to do something before this can progress">⚡ Request action</button>`}
-      </div>`:''}
+      <div style="display:flex;gap:10px;justify-content:flex-end;font-size:.72rem;margin-bottom:10px"><span id="spStatus-request"></span><span id="spStatus-media"></span></div>
       <div class="rq-msgs" id="rqMsgs" style="max-height:48vh">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${m.body?esc(m.body):''}${reqMsgFilesHTML(m)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):`<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on ${rep}'s request page.</div>`}</div>
       <div class="rq-reply" id="rqReplyBox">
         <button class="rq-attach" title="Attach files (or paste / drag them in) — saved to SharePoint" onclick="$('rqMsgFiles').click()">📎</button>
@@ -6594,7 +6588,13 @@ async function refreshReqModal(noFetch){
         <textarea id="rqMsgText" placeholder="Reply to ${rep}… (paste or drop files here · Ctrl+Enter to send)"></textarea>
         <button class="btn" id="rqSendBtn" onclick="sendReqMsg('${id}')">Send</button></div>
       <div class="rq-pend" id="rqPend">${reqPendChips()}</div>
-      <div style="display:flex;gap:10px;font-size:.72rem;margin-top:6px"><span id="spStatus-request"></span><span id="spStatus-media"></span></div>
+      ${open?`<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        ${oa?`<span class="rq-wait" title="${esc(oa.instruction)}" style="max-width:55%;overflow:hidden;text-overflow:ellipsis">⏳ Waiting on ${rep}: ${esc(oa.instruction)}</span>
+          <button class="btn btn-ghost btn-xs" onclick="cancelReqAct('${oa.id}')">✕ Cancel</button>`:''}
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" onclick="openReqNotify()" title="Email ${rep} about an update">🔔 Notify ${rep}</button>
+        ${oa?'':`<button class="btn btn-ghost btn-sm" onclick="openReqAct()" title="Ask ${rep} to do something before this can progress">⚡ Request action</button>`}
+      </div>`:''}
     </div>`;
   }else{
     const doneFiles=all.filter(([f])=>f.is_completion);
