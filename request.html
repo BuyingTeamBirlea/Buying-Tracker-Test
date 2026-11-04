@@ -260,6 +260,10 @@ body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
 .act-check input{width:17px;height:17px;accent-color:#16a34a;cursor:pointer}
 .act-check.done{color:#16a34a;border-top-color:rgba(22,163,74,.35)}
 .act-check small{font-weight:400;color:var(--text3);font-size:.74rem}
+.msg.del{position:relative;padding-right:26px}
+.msg-x{position:absolute;top:4px;right:4px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:.72rem;line-height:1;padding:3px 5px;border-radius:4px;opacity:.5;white-space:normal}
+.msg:hover .msg-x{opacity:1}
+.msg-x:hover{color:var(--red);background:var(--bg2)}
 .msg.action-done{border-color:rgba(22,163,74,.4);background:rgba(22,163,74,.07)}
 .act-box .ins{white-space:pre-wrap;font-size:.92rem;line-height:1.45}
 .act-box .meta{font-size:.76rem;color:var(--text3);margin-top:6px}
@@ -548,6 +552,7 @@ const SB={
     const t=await r.text(); return t?JSON.parse(t):null;
   },
   get:p=>SB.req('GET',p), post:(p,b)=>SB.req('POST',p,b),
+  del:p=>SB.req('DELETE',p),
   rpc:(fn,args)=>SB.req('POST','rpc/'+fn,args||{}),
   async upload(path,file){
     const r=await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`,{method:'POST',
@@ -1062,7 +1067,7 @@ function msgFilesHTML(m){
 let msgPending=[];
 function messagesViewHTML(r){
   return `<div>
-      <div class="msgs" id="dMsgs" style="max-height:calc(100vh - 380px);overflow-y:auto">${detailMsgs.length?detailMsgs.map(m=>`<div class="msg ${m.author===me?'mine':''}${(a=>a?(a.status==='done'?' action-done':' action-msg'):/^⚡ Action needed/.test(m.body||'')?' action-msg':'')(msgAction(m))}">${m.body?esc(m.body):''}${msgFilesHTML(m)}${actionCheckHTML(m)}<small>${m.author===me?'You':esc(nameOf(m.author))} · ${fmtWhen(m.created_at)}</small></div>`).join(''):'<div class="hint">No messages yet. Use this instead of email so nothing gets lost.</div>'}</div>
+      <div class="msgs" id="dMsgs" style="max-height:calc(100vh - 380px);overflow-y:auto">${detailMsgs.length?detailMsgs.map(m=>`<div class="msg ${m.author===me?'mine del':''}${(a=>a?(a.status==='done'?' action-done':' action-msg'):/^⚡ Action needed/.test(m.body||'')?' action-msg':'')(msgAction(m))}">${m.author===me?`<button class="msg-x" title="Remove this message" onclick="deleteMsg('${m.id}')">✕</button>`:''}${m.body?esc(m.body):''}${msgFilesHTML(m)}${actionCheckHTML(m)}<small>${m.author===me?'You':esc(nameOf(m.author))} · ${fmtWhen(m.created_at)}</small></div>`).join(''):'<div class="hint">No messages yet. Use this instead of email so nothing gets lost.</div>'}</div>
       <div class="msg-box" id="msgBox">
         <button class="msg-attach" title="Attach files or images (you can also paste or drag them in)" onclick="$('msgFiles').click()">📎</button>
         <input type="file" id="msgFiles" multiple class="hidden" onchange="addMsgFiles(this.files);this.value=''">
@@ -1158,6 +1163,17 @@ function actionCheckHTML(m){
   const a=msgAction(m); if(!a) return '';
   const done=a.status==='done';
   return `<label class="act-check${done?' done':''}" onclick="event.stopPropagation()"><input type="checkbox"${done?' checked':''} onchange="toggleAction('${a.id}',this.checked,this)">${done?`Actioned <small>· ${esc(a.done_by===me?'you':nameOf(a.done_by||''))}${a.done_at?' · '+fmtWhen(a.done_at):''}</small>`:'Tick when actioned'}</label>`;
+}
+// Remove one of your own messages (and anything attached to it) from both sides of the chat
+async function deleteMsg(msgId){
+  const n=detailFiles.filter(f=>f.message_id===msgId).length;
+  if(!confirm(`Remove this message${n?` and its ${n} attachment${n>1?'s':''}`:''}? It disappears for the buying team too.`)) return;
+  try{
+    const gone=await SB.del(`request_messages?id=eq.${msgId}`);
+    if(!gone||!gone.length) throw new Error('not allowed — ask the buying team to remove it');
+    await loadAll(); toast('Message removed');
+  }
+  catch(e){ toast('Could not remove: '+e.message,'error'); }
 }
 async function toggleAction(actionId,checked,el){
   if(el) el.disabled=true;

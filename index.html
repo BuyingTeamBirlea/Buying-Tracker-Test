@@ -697,12 +697,13 @@ body.view-only #menuDropdown button:not([onclick="signOut()"]):not([onclick^="ex
 .rq-file-link a.btn:hover{color:#fff}.rq-file-link a.btn-ghost:hover{color:var(--text)}
 .rq-file-link .k{font-size:.7rem;color:var(--text3);white-space:nowrap}
 .rq-sub{font-size:.76rem;color:var(--text3);margin:-4px 0 8px}
-.rq-act{border:1px solid rgba(249,115,22,.45);background:rgba(249,115,22,.08);border-radius:var(--radius);padding:11px 13px;margin-bottom:14px}
-.rq-act b.h{font-size:.72rem;color:#ea580c;text-transform:uppercase;letter-spacing:.05em}
+.rq-act{border:1px solid rgba(239,68,68,.45);background:rgba(239,68,68,.08);border-radius:var(--radius);padding:11px 13px;margin-bottom:14px}
+.rq-act b.h{font-size:.72rem;color:#dc2626;text-transform:uppercase;letter-spacing:.05em}
 .rq-act .ins{white-space:pre-wrap;font-size:.9rem;margin:5px 0}
-.rq-wait{display:inline-flex;align-items:center;padding:3px 9px;border-radius:100px;font-size:.72rem;font-weight:700;background:rgba(249,115,22,.15);color:#ea580c;border:1px solid rgba(249,115,22,.4);white-space:nowrap}
-body.light-mode .rq-wait,body.light-mode .rq-act b.h{color:#c2410c}
-.rq-msg.action-msg{border-color:rgba(249,115,22,.45);background:rgba(249,115,22,.08)}
+.rq-wait{display:inline-flex;align-items:center;padding:3px 9px;border-radius:100px;font-size:.72rem;font-weight:700;background:rgba(239,68,68,.15);color:#dc2626;border:1px solid rgba(239,68,68,.4);white-space:nowrap}
+body.light-mode .rq-wait,body.light-mode .rq-act b.h{color:#dc2626}
+.rq-msg.action-msg{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.08)}
+.rq-msg.action-done{border-color:rgba(22,163,74,.4);background:rgba(22,163,74,.07)}
 .rq-msg-files{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .rq-msg-file{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;font-size:.76rem;cursor:pointer;max-width:260px;white-space:nowrap}
 .rq-msg-file .nm{overflow:hidden;text-overflow:ellipsis}
@@ -6603,7 +6604,7 @@ async function refreshReqModal(noFetch){
     const oa=reqOpenAction(id);
     html=`<div class="rq-sec" style="margin-bottom:0">
       <div style="display:flex;gap:10px;justify-content:flex-end;font-size:.72rem;margin-bottom:10px"><span id="spStatus-request"></span><span id="spStatus-media"></span></div>
-      <div class="rq-msgs" id="rqMsgs" style="max-height:48vh">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}${reqIsBuyerMsg(m,me)?' del':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${reqIsBuyerMsg(m,me)?`<button class="rq-msg-x" title="Remove this message${_reqActs.some(a=>a.message_id===m.id&&a.status==='open')?' (also cancels the action)':''}" onclick="deleteReqMsg('${m.id}')">✕</button>`:''}${m.body?esc(m.body):''}${reqMsgFilesHTML(m)}${reqActStatusHTML(m)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):`<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on ${rep}'s request page.</div>`}</div>
+      <div class="rq-msgs" id="rqMsgs" style="max-height:48vh">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}${reqIsBuyerMsg(m,me)?' del':''}${(x=>x?(x.status==='done'?' action-done':' action-msg'):/^⚡ Action needed/.test(m.body||'')?' action-msg':'')(_reqActs.find(x=>x.message_id===m.id&&x.status!=='cancelled'))}">${reqIsBuyerMsg(m,me)?`<button class="rq-msg-x" title="Remove this message${_reqActs.some(a=>a.message_id===m.id&&a.status==='open')?' (also cancels the action)':''}" onclick="deleteReqMsg('${m.id}')">✕</button>`:''}${m.body?esc(m.body):''}${reqMsgFilesHTML(m)}${reqActStatusHTML(m)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):`<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on ${rep}'s request page.</div>`}</div>
       <div class="rq-reply" id="rqReplyBox">
         <button class="rq-attach" title="Attach files (or paste / drag them in) — saved to SharePoint" onclick="$('rqMsgFiles').click()">📎</button>
         <input type="file" id="rqMsgFiles" multiple class="hidden" onchange="reqMsgAdd(this.files);this.value=''">
