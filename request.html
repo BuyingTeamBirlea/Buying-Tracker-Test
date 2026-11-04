@@ -53,6 +53,15 @@ button,input,select,textarea{font-family:inherit}
 .page-head h1{font-size:1.35rem;font-weight:600}
 .page-head p{color:var(--text3);font-size:.85rem;margin-top:3px}
 .page-head .spacer{flex:1}
+.list-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.list-tools .search{flex:1;min-width:200px;position:relative}
+.list-tools .search input{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 12px 8px 32px;border-radius:var(--radius-sm);font-size:.86rem;outline:none}
+.list-tools .search input:focus{border-color:var(--accent)}
+.list-tools .search span{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.85rem;opacity:.6}
+.list-tools select{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:var(--radius-sm);font-size:.84rem;outline:none;cursor:pointer}
+.list-tools select:focus{border-color:var(--accent)}
+.list-tools .clear{background:none;border:none;color:var(--accent);font-size:.8rem;cursor:pointer;text-decoration:underline}
+.list-count{font-size:.78rem;color:var(--text3);margin:-4px 0 10px}
 .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:2px}
 .seg button{background:none;border:none;color:var(--text2);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:.82rem}
 .seg button.active{background:var(--bg4);color:var(--text)}
@@ -66,7 +75,10 @@ button,input,select,textarea{font-family:inherit}
 .ref{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text3)}
 .req-title{font-weight:600;font-size:.95rem}
 .req-meta{font-size:.8rem;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap}
-.req-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.req-side{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:6px}
+.side-row{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:nowrap}
+.side-row .mini-item{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.req-flags{display:flex;gap:10px;margin-top:4px}
 .new-dot{font-size:.7rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
 .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:.74rem;font-weight:500;white-space:nowrap}
 .st-New{background:rgba(79,110,247,.15);color:#8aa0fb}
@@ -152,8 +164,8 @@ body.light-mode .days-green{color:#15803d}body.light-mode .days-amber{color:#b45
 .latest small{display:block;font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:3px}
 
 /* request tabs */
-.dtabs{display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--border);background:var(--bg2)}
-.dtab{background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);padding:10px 12px;font-size:.88rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-bottom:-1px}
+.dtabs{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--bg2);overflow-x:auto;scrollbar-width:none}
+.dtab{background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);padding:10px 9px;white-space:nowrap;flex-shrink:0;font-size:.88rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-bottom:-1px}
 .dtab:hover{color:var(--text)}
 .dtab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .dtab .cnt{font-size:.7rem;background:var(--bg4);color:var(--text2);border-radius:100px;padding:1px 7px;font-family:'DM Mono',monospace}
@@ -182,6 +194,13 @@ body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
 .f-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .f-row .k{font-size:.72rem;color:var(--text3);white-space:nowrap}
 .sp-note{font-size:.76rem;color:var(--text3);margin-top:12px}
+.f-row .nm{cursor:pointer}
+.f-act{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:.76rem;font-weight:500;text-decoration:none;white-space:nowrap;cursor:pointer}
+.f-act:hover{border-color:var(--accent);color:var(--text)}
+.f-act.desk{background:var(--accent);border-color:var(--accent);color:#fff}
+.f-act.desk:hover{background:var(--accent2)}
+.sp-bar{display:flex;align-items:center;gap:10px;background:rgba(245,158,11,.1);border-bottom:1px solid rgba(245,158,11,.35);padding:9px 20px;font-size:.82rem}
+.sp-bar span{flex:1}
 
 /* detail drawer */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:80;display:flex;justify-content:flex-end;backdrop-filter:blur(3px)}
@@ -220,7 +239,28 @@ body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
 .msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:.88rem;line-height:1.45;white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);align-self:flex-start}
 .msg.mine{align-self:flex-end;background:rgba(79,110,247,.14);border-color:rgba(79,110,247,.35)}
 .msg small{display:block;font-size:.7rem;color:var(--text3);margin-top:4px}
-.msg-box{display:flex;gap:8px;margin-top:10px}
+.msg-box{display:flex;gap:8px;margin-top:10px;align-items:stretch}
+.msg-box.over textarea{border-color:var(--accent);background:rgba(79,110,247,.06)}
+.msg-attach{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:1.05rem;padding:0 11px;color:var(--text2)}
+.msg-attach:hover{border-color:var(--accent)}
+.msg-pending{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.msg-pending span{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:100px;padding:3px 10px;font-size:.78rem}
+.msg-pending button{background:none;border:none;color:var(--text3);cursor:pointer}
+.msg-files{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.msg-file{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 8px;font-size:.78rem;cursor:pointer;max-width:260px;white-space:nowrap}
+.msg-file .nm{overflow:hidden;text-overflow:ellipsis}
+.msg-file a{color:var(--accent);text-decoration:none;font-weight:600}
+.msg-img{width:120px;height:90px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;position:relative}
+.msg-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.msg.action-msg{border-color:rgba(249,115,22,.45);background:rgba(249,115,22,.08)}
+.act-box{margin:0 20px;margin-top:14px;border:1px solid rgba(249,115,22,.45);background:rgba(249,115,22,.09);border-radius:var(--radius);padding:12px 14px}
+.act-box h4{font-size:.8rem;color:#ea580c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.act-box .ins{white-space:pre-wrap;font-size:.92rem;line-height:1.45}
+.act-box .meta{font-size:.76rem;color:var(--text3);margin-top:6px}
+.act-box .done-row{display:flex;gap:8px;margin-top:10px}
+.act-box .done-row input{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:var(--radius-sm);font-size:.86rem;outline:none}
+.act-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:.74rem;font-weight:700;background:rgba(249,115,22,.15);color:#ea580c;border:1px solid rgba(249,115,22,.4);white-space:nowrap}
+.act-count{display:inline-flex;margin-left:10px;vertical-align:middle;font-size:.78rem}
 .msg-box textarea{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:var(--radius-sm);font-size:.88rem;outline:none;resize:none;height:60px}
 .msg-box textarea:focus{border-color:var(--accent)}
 
@@ -246,7 +286,8 @@ body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
   .form-grid{grid-template-columns:1fr}
   .who{display:none}
   .req-card{grid-template-columns:1fr}
-  .req-side{flex-direction:row;align-items:center;justify-content:flex-start}
+  .req-side{align-items:flex-start}
+  .side-row{justify-content:flex-start;flex-wrap:wrap}
   .main{padding:16px 14px 50px}
 }
 </style>
@@ -301,7 +342,7 @@ body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
     <section id="listView">
       <div class="page-head">
         <div>
-          <h1 id="listTitle">My requests</h1>
+          <h1><span id="listTitle">My requests</span><span class="act-count" id="actCount"></span></h1>
           <p id="listSub">Track every request you've sent and see the item cards as they move through buying.</p>
         </div>
         <div class="spacer"></div>
@@ -316,6 +357,24 @@ body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
         </div>
         <button class="btn" onclick="showForm()">+ New request</button>
       </div>
+      <div class="list-tools">
+        <div class="search"><span>🔍</span><input id="lfSearch" placeholder="Search ref, title, customer, SKU…" oninput="renderList()"></div>
+        <select id="lfPerson" class="hidden" onchange="renderList()" title="Filter by person"></select>
+        <select id="lfType" onchange="renderList()" title="Filter by request type">
+          <option value="">All types</option><option>New Product Development</option><option>Margin Sheets</option>
+          <option>BC Set Up</option><option>PIM Assistance</option><option>Customer Service</option></select>
+        <select id="lfCustomer" onchange="renderList()" title="Filter by customer"><option value="">All customers</option></select>
+        <select id="lfSort" onchange="renderList()" title="Sort">
+          <option value="updated">Sort: Last update</option>
+          <option value="sent_new">Sort: Sent (newest)</option>
+          <option value="sent_old">Sort: Sent (oldest)</option>
+          <option value="az">Sort: Title A–Z</option>
+          <option value="za">Sort: Title Z–A</option>
+          <option value="chase">Sort: Longest since update</option>
+          <option value="person">Sort: Person</option></select>
+        <button class="clear hidden" id="lfClear" onclick="clearListFilters()">Clear</button>
+      </div>
+      <div class="list-count" id="listCount"></div>
       <div class="req-list" id="reqList"></div>
     </section>
 
@@ -399,7 +458,9 @@ body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
       </div>
       <button class="icon-btn" onclick="closeDetail()" title="Close">✕</button>
     </div>
+    <div id="dAction"></div>
     <div class="dtabs" id="dTabs"></div>
+    <div class="sp-bar hidden" id="spBar"><span>🔑 Sign in to SharePoint once to see these images — after that they load automatically.</span><button class="btn btn-sm" onclick="spReauth()">Sign in to SharePoint</button></div>
     <div class="drawer-body" id="dBody"></div>
   </div>
 </div>
@@ -562,6 +623,7 @@ $('menuBtn').addEventListener('click',e=>{ e.stopPropagation(); $('menu').classL
 document.addEventListener('click',()=>$('menu').classList.remove('open'));
 
 // ═══ STATE ═══
+let actions=[]; // ⚡ action-needed tasks the buying team has set (RLS: own + department)
 let me='', myDept='', myRole=null, requests=[], progress=[], filter='open', openId=null, lastTs=null, pollTimer=null;
 const OPEN_ST=new Set(['New','Acknowledged','In Progress']);
 
@@ -581,15 +643,39 @@ async function boot(){
 
 async function loadAll(){
   try{
-    const [reqs,prog]=await Promise.all([
+    const [reqs,prog,acts]=await Promise.all([
       SB.get(`requests?select=*&order=created_at.desc`),          // RLS: own + same department
-      SB.rpc('request_progress')
+      SB.rpc('request_progress'),
+      SB.get(`request_actions?select=*&order=created_at.desc`).catch(()=>[])
     ]);
-    requests=reqs||[]; progress=prog||[];
+    requests=reqs||[]; progress=prog||[]; actions=acts||[];
+    updateTitleBadge();
     lastTs=requests.reduce((m,r)=>r.updated_at>m?r.updated_at:m,'');
     renderList();
     if(openId) renderDetail(openId,true);
+    openDeepLink();
   }catch(e){ toast('Could not load requests: '+e.message,'error'); }
+}
+const openAction=reqId=>actions.find(a=>a.request_id===reqId&&a.status==='open');
+// Email links open straight onto the ticket: request.html?req=<id>
+let _deepLinkDone=false;
+function openDeepLink(){
+  if(_deepLinkDone) return; _deepLinkDone=true;
+  const id=new URLSearchParams(location.search).get('req'); if(!id) return;
+  const r=requests.find(x=>x.id===id); if(!r){ toast('That request is not available to your login','error'); return; }
+  if(r.requested_by!==me&&scope!=='dept') setScope('dept');
+  history.replaceState(null,'',location.pathname);
+  openDetail(id);
+}
+// Count on the browser tab (and app icon, if installed): updates for you + actions waiting
+function updateTitleBadge(){
+  const mineIds=new Set(requests.filter(r=>r.requested_by===me).map(r=>r.id));
+  const n=requests.filter(r=>mineIds.has(r.id)&&r.rep_unread).length
+        +actions.filter(a=>a.status==='open'&&mineIds.has(a.request_id)).length;
+  document.title=(n?`(${n}) `:'')+'Buying Requests';
+  try{ if(navigator.setAppBadge){ n?navigator.setAppBadge(n):navigator.clearAppBadge(); } }catch(e){}
+  const waiting=actions.filter(a=>a.status==='open'&&(scope==='dept'||mineIds.has(a.request_id))).length;
+  const el=$('actCount'); if(el){ el.innerHTML=waiting?`<span class="act-tag">⚡ ${waiting} action${waiting>1?'s':''} waiting</span>`:''; }
 }
 // Light poll: one tiny row unless something changed. Item-card stage changes don't touch
 // requests.updated_at, so progress is refreshed on its own every poll (small RPC).
@@ -624,6 +710,7 @@ function dueHTML(r){
 // Scope: just my requests (default) or everything my department has raised
 let scope='mine'; // always opens on the user's own requests
 function setScope(sc){
+  setTimeout(updateTitleBadge,0);
   scope=(sc==='dept'&&myDept)?'dept':'mine';
   document.querySelectorAll('#scopeSeg button').forEach(b=>b.classList.toggle('active',b.dataset.s===scope));
   if(scope==='dept'){
@@ -636,10 +723,58 @@ function setScope(sc){
   renderList();
 }
 document.querySelectorAll('#scopeSeg button').forEach(b=>b.addEventListener('click',()=>setScope(b.dataset.s)));
+// ── Filters & sort ──
+// Last update = newest of: the ticket changing (messages, status, files…) or a linked item card's latest timeline entry
+function lastUpdate(r){
+  let t=r.updated_at||r.created_at;
+  progress.filter(p=>p.request_id===r.id&&p.last_activity).forEach(p=>{ const d=p.last_activity+'T23:59:59'; if(d>t) t=d; });
+  return t;
+}
+function chaseDays(r){
+  if(!OPEN_ST.has(r.status)) return -1; // finished tickets go to the bottom
+  const ds=progress.filter(p=>p.request_id===r.id).map(daysInactive).filter(n=>n!=null);
+  return ds.length?Math.max(...ds):Math.floor((Date.now()-new Date(r.updated_at||r.created_at))/86400000);
+}
+function fillListFilters(){
+  const base=requests.filter(r=>scope==='dept'||r.requested_by===me);
+  const keep=(id,opts,first)=>{ const el=$(id), v=el.value;
+    el.innerHTML=`<option value="">${first}</option>`+opts.map(([val,lab])=>`<option value="${esc(val)}">${esc(lab)}</option>`).join('');
+    if(opts.some(([val])=>val===v)) el.value=v; };
+  const people=[...new Set(base.map(r=>r.requested_by))].map(e=>[e,e===me?'Me ('+nameOf(e)+')':nameOf(e)]).sort((a,b)=>a[1].localeCompare(b[1]));
+  keep('lfPerson',people,'Everyone');
+  $('lfPerson').classList.toggle('hidden',scope!=='dept');
+  if(scope!=='dept') $('lfPerson').value='';
+  const custs=[...new Set(base.map(r=>r.customer).filter(Boolean))].sort().map(c=>[c,c]);
+  keep('lfCustomer',custs,'All customers');
+  $('lfCustomer').classList.toggle('hidden',!custs.length);
+}
+function clearListFilters(){ ['lfSearch','lfPerson','lfType','lfCustomer'].forEach(id=>$(id).value=''); $('lfSort').value='updated'; renderList(); }
+
 function renderList(){
+  fillListFilters();
+  const q=($('lfSearch').value||'').trim().toLowerCase(), who=$('lfPerson').value, type=$('lfType').value, cust=$('lfCustomer').value, sort=$('lfSort').value;
   const list=requests
     .filter(r=>scope==='dept'||r.requested_by===me)
-    .filter(r=>filter==='all'||(filter==='open'?OPEN_ST.has(r.status):!OPEN_ST.has(r.status)));
+    .filter(r=>filter==='all'||(filter==='open'?OPEN_ST.has(r.status):!OPEN_ST.has(r.status)))
+    .filter(r=>!who||r.requested_by===who)
+    .filter(r=>!type||r.request_type===type)
+    .filter(r=>!cust||r.customer===cust)
+    .filter(r=>!q||[r.ref,displayRef(r),r.title,r.customer,r.cs_ticket,r.description,r.request_type,nameOf(r.requested_by),
+                    ...progress.filter(p=>p.request_id===r.id).map(p=>p.name)].some(v=>(v||'').toLowerCase().includes(q)))
+    .sort((a,b)=>{
+      if(sort==='sent_new') return b.created_at.localeCompare(a.created_at);
+      if(sort==='sent_old') return a.created_at.localeCompare(b.created_at);
+      if(sort==='az') return (a.title||'').localeCompare(b.title||'',undefined,{sensitivity:'base'});
+      if(sort==='za') return (b.title||'').localeCompare(a.title||'',undefined,{sensitivity:'base'});
+      if(sort==='chase') return chaseDays(b)-chaseDays(a);
+      if(sort==='person') return nameOf(a.requested_by).localeCompare(nameOf(b.requested_by))||b.created_at.localeCompare(a.created_at);
+      if(!!openAction(a.id)!==!!openAction(b.id)) return openAction(a.id)?-1:1; // things waiting on you first
+      return lastUpdate(b).localeCompare(lastUpdate(a));
+    });
+  const filtered=!!(q||who||type||cust);
+  $('lfClear').classList.toggle('hidden',!filtered&&sort==='updated');
+  $('listCount').textContent=`${list.length} request${list.length===1?'':'s'}${filtered?' match':''}`;
+  if(!list.length&&filtered){ $('reqList').innerHTML=`<div class="empty"><h3>No matching requests</h3><p><button class="clear" onclick="clearListFilters()">Clear filters</button></p></div>`; return; }
   if(!list.length){
     const who=scope==='dept'?`the ${esc(myDept)} team`:'you';
     $('reqList').innerHTML=`<div class="empty"><h3>${filter==='open'?'No open requests':'Nothing here yet'}</h3><p>${filter==='open'?(scope==='mine'?'Tap "+ New request" to send one to the buying team.':`No open requests from ${who}.`):''}</p></div>`;
@@ -652,13 +787,14 @@ function renderList(){
         <div class="req-top"><span class="ref">${esc(displayRef(r))}</span></div>
         <div class="req-title">${reqTitle(r)}</div>
         <div class="req-meta">${r.customer?`<span>${esc(r.customer)}</span>`:''}<span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}${r.requested_by!==me?' by '+esc(nameOf(r.requested_by)):''}</span>${assigneeHTML(r)}</div>
+        ${r.rep_unread||(r.status==='Complete'&&r.completion_notes)?`<div class="req-flags">${r.rep_unread?'<span class="new-dot">● Update</span>':''}${r.status==='Complete'&&r.completion_notes?'<span class="done-tag">📄 Details ready</span>':''}</div>`:''}
       </div>
       <div class="req-side">
-        <span style="display:inline-flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${statusHTML(r)}</span>
-        ${r.rep_unread?'<span class="new-dot">● Update</span>':''}
-        ${r.status==='Complete'&&r.completion_notes?'<span class="done-tag">📄 Details ready</span>':''}
+        ${openAction(r.id)?`<div class="side-row"><span class="act-tag" title="${esc(openAction(r.id).instruction)}">⚡ Action needed</span></div>`:''}
+        ${items.length&&r.status!=='Complete'
+          ? items.map(i=>`<div class="side-row"><span class="mini-item" title="${esc(i.name)}">${esc(i.name)}</span>${stagePill(i.stage)}${daysBadge(i)}</div>`).join('')
+          : `<div class="side-row">${items.length?items.map(i=>`<span class="mini-item" title="${esc(i.name)}">${esc(i.name)}</span>`).join(''):''}${statusHTML(r)}</div>`}
       </div>
-      ${items.length?`<div class="mini-items">${items.map(i=>`<span class="mini-item">${esc(i.name)}</span>${stagePill(i.stage)}${daysBadge(i)}`).join('')}</div>`:''}
     </div>`;
   }).join('');
 }
@@ -699,13 +835,13 @@ function progressHTML(p){
 // Three views, like the tabs on an item card: Request · Timeline · Messages
 let detailFiles=[], detailMsgs=[], detailTimeline=[], detailItemFiles=[], blobCache={}, detailTab='info';
 async function openDetail(id){
-  openId=id; detailTab='info'; $('detailOv').classList.remove('hidden');
+  openId=id; detailTab='info'; msgPending=[]; $('detailOv').classList.remove('hidden');
   $('dTabs').innerHTML=''; $('dBody').innerHTML='<div class="hint">Loading…</div>';
   await renderDetail(id,false);
   const r=requests.find(x=>x.id===id);
   if(r&&r.rep_unread){ r.rep_unread=false; renderList(); SB.rpc('mark_request_read',{p_id:id}).catch(()=>{}); }
 }
-function closeDetail(){ openId=null; $('detailOv').classList.add('hidden'); }
+function closeDetail(){ openId=null; $('detailOv').classList.add('hidden'); $('spBar')?.classList.add('hidden'); }
 $('detailOv').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeDetail(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeLightbox(); closeDetail(); closePwModal(); } });
 function setDetailTab(t){ detailTab=t; renderDetailView(); if(t==='messages') setTimeout(()=>{ const m=$('dMsgs'); if(m) m.scrollTop=m.scrollHeight; },0); }
@@ -727,6 +863,15 @@ async function renderDetail(id,quiet){
 function renderDetailView(){
   const id=openId; const r=requests.find(x=>x.id===id); if(!r) return;
   const draft=$('msgText')?.value||'';
+  const actDraft=$('actNote')?.value||'';
+  const a=openAction(id);
+  $('dAction').innerHTML=a?`<div class="act-box">
+      <h4>⚡ Action needed${a.created_by?' · from '+esc(nameOf(a.created_by)):''}</h4>
+      <div class="ins">${esc(a.instruction)}</div>
+      <div class="meta">${a.due_date?`Due by <b>${ddmm(a.due_date,false)}</b> · `:''}Set ${fmtDate(a.created_at)}${a.message_id?' · any files are in <a href="#" onclick="setDetailTab(\'messages\');return false">Messages</a>':''}</div>
+      <div class="done-row"><input id="actNote" placeholder="Optional reply, e.g. RRP £499 confirmed"><button class="btn btn-sm" onclick="markActionDone('${a.id}')">✔ Mark as done</button></div>
+    </div>`:'';
+  if(actDraft&&$('actNote')) $('actNote').value=actDraft;
   const items=progress.filter(p=>p.request_id===id);
   $('dRef').textContent=displayRef(r);
   $('dPills').innerHTML=statusHTML(r);
@@ -738,7 +883,7 @@ function renderDetailView(){
     tab('timeline','🕒 Timeline',items.length?`<span class="cnt">${tlCount}</span>`:'')+
     tab('files','📁 Files',(()=>{ const n=filesForView(false).length; return n?`<span class="cnt">${n}</span>`:''; })())+
     tab('media','🖼️ Media',(()=>{ const n=filesForView(true).length; return n?`<span class="cnt">${n}</span>`:''; })())+
-    tab('messages','💬 Messages',detailMsgs.length?`<span class="cnt">${detailMsgs.length}</span>`:'');
+    tab('messages','💬 Messages'+(detailMsgs.some(m=>detailFiles.some(f=>f.message_id===m.id))?' 📎':''),detailMsgs.length?`<span class="cnt">${detailMsgs.length}</span>`:'');
   const body=$('dBody');
   if(detailTab==='timeline') body.innerHTML=timelineViewHTML(r,items);
   else if(detailTab==='files') body.innerHTML=filesViewHTML(r,false);
@@ -747,11 +892,12 @@ function renderDetailView(){
   else body.innerHTML=infoViewHTML(r);
   if(draft&&$('msgText')) $('msgText').value=draft;
   if(detailTab==='info') hydrateThumbs();
+  if(detailTab==='messages'){ wireMsgBox(); hydrateThumbs(); const m=$('dMsgs'); if(m) m.scrollTop=m.scrollHeight; }
 }
 
 // 1 ── Request: what was submitted
 function infoViewHTML(r){
-  const repFiles=detailFiles.map((f,i)=>[f,i]).filter(([f])=>!f.is_completion&&!f.shared_by_buyer);
+  const repFiles=detailFiles.map((f,i)=>[f,i]).filter(([f])=>!f.is_completion&&!f.shared_by_buyer&&!f.message_id);
   const doneFiles=detailFiles.map((f,i)=>[f,i]).filter(([f])=>f.is_completion);
   return `
     ${r.status==='Complete'?`<div class="done-box">
@@ -823,7 +969,7 @@ const isImgName=n=>/\.(jpe?g|png|webp|gif|heic)$/i.test(n||'');
 const isVidName=n=>/\.(mp4|mov|webm)$/i.test(n||'');
 function filesForView(media){
   const out=[];
-  detailFiles.forEach((f,i)=>{ if(!(f.shared_by_buyer||f.is_completion)) return;
+  detailFiles.forEach((f,i)=>{ if(f.message_id||!(f.shared_by_buyer||f.is_completion)) return;
     const m=f.is_image||isImgName(f.name)||isVidName(f.name);
     if(m===media) out.push({src:'ticket',i,name:f.name,url:f.sp_url||'',sp:!!f.sp_url,group:'From the buying team'}); });
   detailItemFiles.forEach(f=>{
@@ -831,6 +977,48 @@ function filesForView(media){
     if(m===media) out.push({src:'item',name:f.name,url:f.url,sp:!!f.sp_path,kind:f.is_upload?(KIND_LABEL[f.kind]||'File'):'Link',group:`${f.item_name}${f.ref_code?' · '+f.ref_code:''}`}); });
   return out;
 }
+// Office desktop app link — same as the Buying Tracker (edits save straight back to SharePoint)
+function officeDesktopUrl(webUrl,name){
+  const ext=((name||'').split('.').pop()||'').toLowerCase();
+  const app={xlsx:'excel',xlsm:'excel',xls:'excel',xlsb:'excel',csv:'excel',
+             docx:'word',docm:'word',doc:'word',pptx:'powerpoint',pptm:'powerpoint',ppt:'powerpoint'}[ext];
+  return app?{href:`ms-${app}:ofe|u|${webUrl}`,label:{excel:'Excel',word:'Word',powerpoint:'PowerPoint'}[app]}:null;
+}
+
+// ── SharePoint sign-in (same approach as the tracker) ──
+// Image previews come from SharePoint, so the browser needs a SharePoint sign-in once.
+// If a preview can't load, show the bar; signing in opens SharePoint in a small window,
+// Microsoft signs you in (usually automatically), the window closes and the images load.
+let _spProbe=null;
+function spImgFail(img){
+  const src=img.getAttribute('src'); img.remove();
+  if(!_spProbe) _spProbe=src;
+  $('spBar')?.classList.remove('hidden');
+}
+function _spCanLoad(u){
+  return new Promise(res=>{ const i=new Image(); const t=setTimeout(()=>res(false),8000);
+    i.onload=()=>{clearTimeout(t);res(true)}; i.onerror=()=>{clearTimeout(t);res(false)};
+    i.src=u+(u.includes('?')?'&':'?')+'r='+Date.now(); });
+}
+async function spReauth(){
+  const w=window.open(SP_HOST+'/_layouts/15/sharepoint.aspx','spSignin','width=520,height=640');
+  if(!w){ toast('Pop-up blocked — allow pop-ups for this page, then try again','error'); return; }
+  toast('Signing in to SharePoint…');
+  const probe=_spProbe;
+  for(let i=0;i<60;i++){
+    await new Promise(r=>setTimeout(r,2000));
+    if(probe&&await _spCanLoad(probe)){
+      try{ w.close(); }catch(e){}
+      _spProbe=null; $('spBar')?.classList.add('hidden');
+      if(openId) renderDetailView();
+      toast('SharePoint connected ✓');
+      return;
+    }
+    if(w.closed&&i>2) break;
+  }
+  toast('Still can\'t reach SharePoint — check you are signed in with your Birlea Microsoft account','error');
+}
+
 function openViewFile(src,key){
   if(src==='ticket'){ const f=detailFiles[key]; if(f&&f.sp_url) window.open(f.sp_url,'_blank','noopener'); else openFile(key); return; }
   window.open(key,'_blank','noopener');
@@ -845,17 +1033,66 @@ function filesViewHTML(r,media){
     return `<div class="file-group"><div class="sec-title">${esc(g)} (${rows.length})</div>${media
       ?`<div class="thumbs">${rows.map(x=>`<div class="thumb" onclick="${open(x)}" title="${esc(x.name)}">
           <span><span class="ic">${isVidName(x.name)?'🎬':'🖼️'}</span>${esc(x.name)}</span>
-          ${!isVidName(x.name)&&x.url?`<img src="${esc(x.sp?spThumb(x.url):x.url)}" alt="" onerror="this.remove()">`:''}</div>`).join('')}</div>`
-      :rows.map(x=>`<div class="f-row" onclick="${open(x)}" title="${esc(x.name)}"><span>${fileIcon(x.name)}</span><span class="nm">${esc(x.name)}</span>${x.kind?`<span class="k">${esc(x.kind)}</span>`:''}<span class="k">↗</span></div>`).join('')}</div>`;
+          ${!isVidName(x.name)&&x.url?`<img src="${esc(x.sp?spThumb(x.url):x.url)}" alt="" onerror="${x.sp?'spImgFail(this)':'this.remove()'}">`:''}</div>`).join('')}</div>`
+      :rows.map(x=>{
+        const desk=x.sp&&x.url?officeDesktopUrl(x.url,x.name):null;
+        return `<div class="f-row" title="${esc(x.name)}"><span>${fileIcon(x.name)}</span><span class="nm" onclick="${open(x)}">${esc(x.name)}</span>${x.kind?`<span class="k">${esc(x.kind)}</span>`:''}
+          ${desk?`<a class="f-act desk" href="${esc(desk.href)}" title="Opens in the ${desk.label} app on your computer">🖥 Open in ${desk.label}</a>`:''}
+          <button class="f-act" onclick="${open(x)}" title="${x.sp?'Open in SharePoint (browser)':'Open'}">↗ ${desk?'Browser':'Open'}</button></div>`;}).join('')}</div>`;
   }).join('')+(list.some(x=>x.sp)?'<div class="sp-note">Files open in SharePoint — you\'ll need to be signed in with your Birlea Microsoft account.</div>':'');
 }
 
 // 3 ── Messages: between the requester and the buying team
+function msgFilesHTML(m){
+  const fs=detailFiles.map((f,i)=>[f,i]).filter(([f])=>f.message_id===m.id); if(!fs.length) return '';
+  return `<div class="msg-files">${fs.map(([f,i])=>{
+    const img=(f.is_image||isImgName(f.name))&&!isVidName(f.name);
+    if(img) return `<div class="msg-img" data-i="${i}" onclick="openFile(${i})" title="${esc(f.name)}">🖼️${f.sp_url?`<img src="${esc(spThumb(f.sp_url))}" alt="" onerror="spImgFail(this)">`:''}</div>`;
+    const desk=f.sp_url?officeDesktopUrl(f.sp_url,f.name):null;
+    return `<span class="msg-file" title="${esc(f.name)}" onclick="openFile(${i})">${isVidName(f.name)?'🎬':fileIcon(f.name)}<span class="nm">${esc(f.name)}</span>${desk?`<a href="${esc(desk.href)}" onclick="event.stopPropagation()" title="Open in ${desk.label}">🖥 ${desk.label}</a>`:''}</span>`;
+  }).join('')}</div>`;
+}
+let msgPending=[];
 function messagesViewHTML(r){
   return `<div>
-      <div class="msgs" id="dMsgs" style="max-height:calc(100vh - 330px);overflow-y:auto">${detailMsgs.length?detailMsgs.map(m=>`<div class="msg ${m.author===me?'mine':''}">${esc(m.body)}<small>${m.author===me?'You':esc(nameOf(m.author))} · ${fmtWhen(m.created_at)}</small></div>`).join(''):'<div class="hint">No messages yet. Use this instead of email so nothing gets lost.</div>'}</div>
-      <div class="msg-box"><textarea id="msgText" placeholder="Message ${r.assigned_to?esc(nameOf(r.assigned_to)):'the buying team'}…"></textarea><button class="btn" onclick="sendMsg('${r.id}')">Send</button></div>
+      <div class="msgs" id="dMsgs" style="max-height:calc(100vh - 380px);overflow-y:auto">${detailMsgs.length?detailMsgs.map(m=>`<div class="msg ${m.author===me?'mine':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${m.body?esc(m.body):''}${msgFilesHTML(m)}<small>${m.author===me?'You':esc(nameOf(m.author))} · ${fmtWhen(m.created_at)}</small></div>`).join(''):'<div class="hint">No messages yet. Use this instead of email so nothing gets lost.</div>'}</div>
+      <div class="msg-box" id="msgBox">
+        <button class="msg-attach" title="Attach files or images (you can also paste or drag them in)" onclick="$('msgFiles').click()">📎</button>
+        <input type="file" id="msgFiles" multiple class="hidden" onchange="addMsgFiles(this.files);this.value=''">
+        <textarea id="msgText" placeholder="Message ${r.assigned_to?esc(nameOf(r.assigned_to)):'the buying team'}… (paste or drop files here)"></textarea>
+        <button class="btn" id="msgSendBtn" onclick="sendMsg('${r.id}')">Send</button></div>
+      <div class="msg-pending" id="msgPending">${pendingChips()}</div>
     </div>`;
+}
+function pendingChips(){ return msgPending.map((f,i)=>`<span>${(f.type||'').startsWith('image/')?'🖼️':fileIcon(f.name)} ${esc(f.name)} <button onclick="msgPending.splice(${i},1);$('msgPending').innerHTML=pendingChips()">✕</button></span>`).join(''); }
+function addMsgFiles(list){
+  [...list].forEach(f=>{ if(f.size>25*1048576){ toast(`${f.name} is over 25 MB — too big for the chat`,'error'); return; } msgPending.push(f); });
+  if($('msgPending')) $('msgPending').innerHTML=pendingChips();
+}
+function wireMsgBox(){
+  const box=$('msgBox'), ta=$('msgText'); if(!box||box.dataset.wired) return; box.dataset.wired=1;
+  box.addEventListener('dragover',e=>{e.preventDefault();box.classList.add('over');});
+  box.addEventListener('dragleave',()=>box.classList.remove('over'));
+  box.addEventListener('drop',e=>{e.preventDefault();box.classList.remove('over');if(e.dataTransfer.files.length) addMsgFiles(e.dataTransfer.files);});
+  ta.addEventListener('paste',e=>{
+    const files=[...(e.clipboardData?.items||[])].filter(it=>it.kind==='file').map(it=>it.getAsFile()).filter(Boolean)
+      .map((f,i)=>f.name&&f.name!=='image.png'?f:new File([f],`Pasted image ${new Date().toTimeString().slice(0,8).replace(/:/g,'.')}${i?'-'+i:''}.png`,{type:f.type||'image/png'}));
+    if(files.length){ e.preventDefault(); addMsgFiles(files); }
+  });
+  ta.addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) sendMsg(openId); });
+}
+async function sendMsg(id){
+  const t=$('msgText').value.trim(); if(!t&&!msgPending.length) return;
+  const btn=$('msgSendBtn'); btn.disabled=true; btn.textContent=msgPending.length?'Uploading…':'Sending…';
+  try{
+    const [m]=await SB.post('request_messages',{request_id:id,body:t,author:me});
+    let failed=0;
+    for(const f of msgPending){ try{ await uploadOne(id,f,m.id); }catch(e){ failed++; } }
+    if(failed) toast(`${failed} file${failed>1?'s':''} failed to upload`,'error');
+    msgPending=[]; $('msgText').value='';
+    await loadAll(); setDetailTab('messages');
+  }catch(e){ toast('Message failed: '+e.message,'error'); }
+  btn.disabled=false; btn.textContent='Send';
 }
 // Same initials + colours as the Buying Tracker timeline
 const USER_TAGS={'syrus.cripps@birlea.com':{initials:'SC',color:'#4f6ef7'},'michael.prime@birlea.com':{initials:'MP',color:'#ef4444'},'bethany.herron@birlea.com':{initials:'BH',color:'#22c55e'}};
@@ -891,8 +1128,8 @@ async function getBlobUrl(f){
 }
 function hydrateThumbs(){
   detailFiles.forEach((f,i)=>{
-    if(!isImg(f)||f.size>8*1048576) return;
-    getBlobUrl(f).then(u=>{ const el=document.querySelector(`#dBody .thumb[data-i="${i}"]`); if(el&&!el.querySelector('img')) el.insertAdjacentHTML('beforeend',`<img src="${u}" alt="" onerror="this.remove()">`); }).catch(()=>{});
+    if(!f.storage_path||!isImg(f)||f.size>8*1048576) return;
+    getBlobUrl(f).then(u=>{ const el=document.querySelector(`#dBody [data-i="${i}"]`); if(el&&!el.querySelector('img')) el.insertAdjacentHTML('beforeend',`<img src="${u}" alt="" onerror="this.remove()">`); }).catch(()=>{});
   });
 }
 async function openFile(i){
@@ -908,7 +1145,12 @@ async function openFile(i){
 function closeLightbox(){ $('lightbox').classList.add('hidden'); $('lbContent').innerHTML=''; }
 $('lightbox').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeLightbox(); });
 
-async function sendMsg(id){
+async function markActionDone(actionId){
+  const note=($('actNote')?.value||'').trim();
+  try{ await SB.rpc('complete_request_action',{p_action:actionId,p_note:note}); toast('Marked as done ✓ — the buying team has been told'); await loadAll(); }
+  catch(e){ toast('Could not mark as done: '+e.message,'error'); }
+}
+async function sendMsg_old(id){
   const t=$('msgText').value.trim(); if(!t) return;
   try{ await SB.post('request_messages',{request_id:id,body:t,author:me}); $('msgText').value=''; await loadAll(); setDetailTab('messages'); }
   catch(e){ toast('Message failed: '+e.message,'error'); }
@@ -928,10 +1170,11 @@ function checkFile(f){
   if(f.size>MAX_MB*1048576){ toast(`${f.name} is over ${MAX_MB} MB — compress it or send a link in the details`,'error'); return false; }
   return true;
 }
-async function uploadOne(reqId,f){
+async function uploadOne(reqId,f,messageId){
   const path=`${reqId}/${newId().slice(0,8)}-${safeName(f.name)}`;
   await SB.upload(path.split('/').map(encodeURIComponent).join('/'),f);
-  await SB.post('request_files',{request_id:reqId,name:f.name,storage_path:path,mime:f.type||'',size:f.size,uploaded_by:me});
+  await SB.post('request_files',{request_id:reqId,name:f.name,storage_path:path,mime:f.type||'',size:f.size,uploaded_by:me,
+    is_image:(f.type||'').startsWith('image/'),...(messageId?{message_id:messageId}:{})});
 }
 
 // ═══ FORM ═══
