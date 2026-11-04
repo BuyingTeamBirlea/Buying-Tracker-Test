@@ -252,14 +252,21 @@ body.light-mode .dl-over{color:#b91c1c}body.light-mode .dl-done{color:#3730a3}
 .msg-file a{color:var(--accent);text-decoration:none;font-weight:600}
 .msg-img{width:120px;height:90px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;position:relative}
 .msg-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.msg.action-msg{border-color:rgba(249,115,22,.45);background:rgba(249,115,22,.08)}
-.act-box{margin:0 20px;margin-top:14px;border:1px solid rgba(249,115,22,.45);background:rgba(249,115,22,.09);border-radius:var(--radius);padding:12px 14px}
-.act-box h4{font-size:.8rem;color:#ea580c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.msg.action-msg{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.07)}
+.act-box{margin:0 20px;margin-top:14px;border:1px solid rgba(239,68,68,.45);background:rgba(239,68,68,.08);border-radius:var(--radius);padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.act-box h4{font-size:.8rem;color:#dc2626;text-transform:uppercase;letter-spacing:.05em;margin:0;flex:1}
+.act-box .go{font-size:.78rem;color:#dc2626;font-weight:600;white-space:nowrap}
+.act-check{white-space:normal;display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(239,68,68,.35);font-size:.84rem;font-weight:600;color:var(--text);cursor:pointer;user-select:none}
+.act-check input{width:17px;height:17px;accent-color:#16a34a;cursor:pointer}
+.act-check.done{color:#16a34a;border-top-color:rgba(22,163,74,.35)}
+.act-check small{font-weight:400;color:var(--text3);font-size:.74rem}
+.msg.action-done{border-color:rgba(22,163,74,.4);background:rgba(22,163,74,.07)}
 .act-box .ins{white-space:pre-wrap;font-size:.92rem;line-height:1.45}
 .act-box .meta{font-size:.76rem;color:var(--text3);margin-top:6px}
 .act-box .done-row{display:flex;gap:8px;margin-top:10px}
 .act-box .done-row input{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:var(--radius-sm);font-size:.86rem;outline:none}
-.act-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:.74rem;font-weight:700;background:rgba(249,115,22,.15);color:#ea580c;border:1px solid rgba(249,115,22,.4);white-space:nowrap}
+.act-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:.74rem;font-weight:700;background:rgba(239,68,68,.12);color:#dc2626;border:1px solid rgba(239,68,68,.4);white-space:nowrap;vertical-align:middle}
+.req-title .act-tag{margin-left:8px;font-size:.72rem}
 .act-count{display:inline-flex;margin-left:10px;vertical-align:middle;font-size:.78rem}
 .msg-box textarea{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:var(--radius-sm);font-size:.88rem;outline:none;resize:none;height:60px}
 .msg-box textarea:focus{border-color:var(--accent)}
@@ -656,6 +663,7 @@ async function loadAll(){
     openDeepLink();
   }catch(e){ toast('Could not load requests: '+e.message,'error'); }
 }
+const firstName=email=>(nameOf(email)||'').split(' ')[0];
 const openAction=reqId=>actions.find(a=>a.request_id===reqId&&a.status==='open');
 // Email links open straight onto the ticket: request.html?req=<id>
 let _deepLinkDone=false;
@@ -785,12 +793,11 @@ function renderList(){
     return `<div class="req-card${r.rep_unread?' unread':''}" onclick="openDetail('${r.id}')">
       <div>
         <div class="req-top"><span class="ref">${esc(displayRef(r))}</span></div>
-        <div class="req-title">${reqTitle(r)}</div>
+        <div class="req-title">${reqTitle(r)}${openAction(r.id)?`<span class="act-tag" title="${esc(openAction(r.id).instruction)}">⚡ ${esc(firstName(r.requested_by))} - Action Needed</span>`:''}</div>
         <div class="req-meta">${r.customer?`<span>${esc(r.customer)}</span>`:''}<span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}${r.requested_by!==me?' by '+esc(nameOf(r.requested_by)):''}</span>${assigneeHTML(r)}</div>
         ${r.rep_unread||(r.status==='Complete'&&r.completion_notes)?`<div class="req-flags">${r.rep_unread?'<span class="new-dot">● Update</span>':''}${r.status==='Complete'&&r.completion_notes?'<span class="done-tag">📄 Details ready</span>':''}</div>`:''}
       </div>
       <div class="req-side">
-        ${openAction(r.id)?`<div class="side-row"><span class="act-tag" title="${esc(openAction(r.id).instruction)}">⚡ Action needed</span></div>`:''}
         ${items.length&&r.status!=='Complete'
           ? items.map(i=>`<div class="side-row"><span class="mini-item" title="${esc(i.name)}">${esc(i.name)}</span>${stagePill(i.stage)}${daysBadge(i)}</div>`).join('')
           : `<div class="side-row">${items.length?items.map(i=>`<span class="mini-item" title="${esc(i.name)}">${esc(i.name)}</span>`).join(''):''}${statusHTML(r)}</div>`}
@@ -863,15 +870,11 @@ async function renderDetail(id,quiet){
 function renderDetailView(){
   const id=openId; const r=requests.find(x=>x.id===id); if(!r) return;
   const draft=$('msgText')?.value||'';
-  const actDraft=$('actNote')?.value||'';
   const a=openAction(id);
-  $('dAction').innerHTML=a?`<div class="act-box">
-      <h4>⚡ Action needed${a.created_by?' · from '+esc(nameOf(a.created_by)):''}</h4>
-      <div class="ins">${esc(a.instruction)}</div>
-      <div class="meta">${a.due_date?`Due by <b>${ddmm(a.due_date,false)}</b> · `:''}Set ${fmtDate(a.created_at)}${a.message_id?' · any files are in <a href="#" onclick="setDetailTab(\'messages\');return false">Messages</a>':''}</div>
-      <div class="done-row"><input id="actNote" placeholder="Optional reply, e.g. RRP £499 confirmed"><button class="btn btn-sm" onclick="markActionDone('${a.id}')">✔ Mark as done</button></div>
+  $('dAction').innerHTML=a?`<div class="act-box" onclick="setDetailTab('messages')" title="${esc(a.instruction)}">
+      <h4>⚡ ${esc(firstName(r.requested_by))} - Action needed${a.created_by?' · from '+esc(nameOf(a.created_by)):''}</h4>
+      ${detailTab!=='messages'?'<span class="go">Tick it off in Messages →</span>':''}
     </div>`:'';
-  if(actDraft&&$('actNote')) $('actNote').value=actDraft;
   const items=progress.filter(p=>p.request_id===id);
   $('dRef').textContent=displayRef(r);
   $('dPills').innerHTML=statusHTML(r);
@@ -1059,7 +1062,7 @@ function msgFilesHTML(m){
 let msgPending=[];
 function messagesViewHTML(r){
   return `<div>
-      <div class="msgs" id="dMsgs" style="max-height:calc(100vh - 380px);overflow-y:auto">${detailMsgs.length?detailMsgs.map(m=>`<div class="msg ${m.author===me?'mine':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${m.body?esc(m.body):''}${msgFilesHTML(m)}<small>${m.author===me?'You':esc(nameOf(m.author))} · ${fmtWhen(m.created_at)}</small></div>`).join(''):'<div class="hint">No messages yet. Use this instead of email so nothing gets lost.</div>'}</div>
+      <div class="msgs" id="dMsgs" style="max-height:calc(100vh - 380px);overflow-y:auto">${detailMsgs.length?detailMsgs.map(m=>`<div class="msg ${m.author===me?'mine':''}${(a=>a?(a.status==='done'?' action-done':' action-msg'):/^⚡ Action needed/.test(m.body||'')?' action-msg':'')(msgAction(m))}">${m.body?esc(m.body):''}${msgFilesHTML(m)}${actionCheckHTML(m)}<small>${m.author===me?'You':esc(nameOf(m.author))} · ${fmtWhen(m.created_at)}</small></div>`).join(''):'<div class="hint">No messages yet. Use this instead of email so nothing gets lost.</div>'}</div>
       <div class="msg-box" id="msgBox">
         <button class="msg-attach" title="Attach files or images (you can also paste or drag them in)" onclick="$('msgFiles').click()">📎</button>
         <input type="file" id="msgFiles" multiple class="hidden" onchange="addMsgFiles(this.files);this.value=''">
@@ -1149,6 +1152,21 @@ async function openFile(i){
 function closeLightbox(){ $('lightbox').classList.add('hidden'); $('lbContent').innerHTML=''; }
 $('lightbox').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeLightbox(); });
 
+// The buying team's "⚡ Action needed" message carries a tick box the requester toggles
+const msgAction=m=>actions.find(a=>a.message_id===m.id&&a.status!=='cancelled');
+function actionCheckHTML(m){
+  const a=msgAction(m); if(!a) return '';
+  const done=a.status==='done';
+  return `<label class="act-check${done?' done':''}" onclick="event.stopPropagation()"><input type="checkbox"${done?' checked':''} onchange="toggleAction('${a.id}',this.checked,this)">${done?`Actioned <small>· ${esc(a.done_by===me?'you':nameOf(a.done_by||''))}${a.done_at?' · '+fmtWhen(a.done_at):''}</small>`:'Tick when actioned'}</label>`;
+}
+async function toggleAction(actionId,checked,el){
+  if(el) el.disabled=true;
+  try{
+    if(checked){ await SB.rpc('complete_request_action',{p_action:actionId,p_note:''}); toast('Marked as actioned ✓ — the buying team has been told'); }
+    else{ await SB.rpc('reopen_request_action',{p_action:actionId}); toast('Action reopened'); }
+    await loadAll();
+  }catch(e){ if(el){ el.disabled=false; el.checked=!checked; } toast('Could not update: '+e.message,'error'); }
+}
 async function markActionDone(actionId){
   const note=($('actNote')?.value||'').trim();
   try{ await SB.rpc('complete_request_action',{p_action:actionId,p_note:note}); toast('Marked as done ✓ — the buying team has been told'); await loadAll(); }

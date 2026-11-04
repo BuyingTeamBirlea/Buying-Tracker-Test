@@ -6242,7 +6242,14 @@ const REQ_TYPE_CATEGORY={'Customer Service':'Customer Service Enquiries','Margin
 // Starting status per request type (anything not listed → Quoting)
 const REQ_TYPE_STAGE={'Customer Service':'Awaiting Response','Margin Sheets':'To-Do','BC Set Up':'To-Do','PIM Assistance':'To-Do'};
 const reqTitleText=r=>r.request_type==='Customer Service'?`SKU ${r.title}${r.cs_ticket?' · '+r.cs_ticket:''}`:r.title;
-let reqOpenActions=[], _reqNotifs=[];
+let reqOpenActions=[], _reqNotifs=[], _reqActs=[];
+// Status line under the "⚡ Action needed" message — the requester ticks it off on their page
+function reqActStatusHTML(m){
+  const a=_reqActs.find(x=>x.message_id===m.id); if(!a) return '';
+  const st=a.status==='done'?`<span style="color:var(--green)">☑ Actioned by ${esc(reqName(a.done_by||''))}${a.done_at?' · '+fmtEntryDate(a.done_at.slice(0,10),false)+' '+a.done_at.slice(11,16):''}</span>`
+    :a.status==='cancelled'?'<span style="color:var(--text3)">✕ Cancelled</span>':'<span>☐ Not actioned yet</span>';
+  return `<div style="font-size:.78rem;font-weight:600;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border2)">${st}</div>`;
+}
 let reqData=[], reqLinks=[], reqOpenId=null, _reqConvert=null, _reqAvailable=true;
 let _lastKnownReqTs=null, _reqKnownIds=null, _reqFiles=[], _reqMsgs=[], _reqBlobs={}, _reqDeclining=false;
 
@@ -6502,7 +6509,8 @@ async function refreshReqModal(noFetch){
         SB.get(`request_actions?request_id=eq.${id}&select=*&order=created_at.desc`).catch(()=>[]),
         SB.get(`request_notifications?request_id=eq.${id}&select=*&order=created_at.desc`).catch(()=>[])
       ]);
-      reqOpenActions=reqOpenActions.filter(a=>a.request_id!==id).concat((acts||[]).filter(a=>a.status==='open'));
+      _reqActs=acts||[];
+      reqOpenActions=reqOpenActions.filter(a=>a.request_id!==id).concat(_reqActs.filter(a=>a.status==='open'));
     }catch(e){ toast('Could not load request: '+e.message,'error'); }
     if(reqOpenId!==id) return;
   }
@@ -6581,7 +6589,7 @@ async function refreshReqModal(noFetch){
     const oa=reqOpenAction(id);
     html=`<div class="rq-sec" style="margin-bottom:0">
       <div style="display:flex;gap:10px;justify-content:flex-end;font-size:.72rem;margin-bottom:10px"><span id="spStatus-request"></span><span id="spStatus-media"></span></div>
-      <div class="rq-msgs" id="rqMsgs" style="max-height:48vh">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${m.body?esc(m.body):''}${reqMsgFilesHTML(m)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):`<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on ${rep}'s request page.</div>`}</div>
+      <div class="rq-msgs" id="rqMsgs" style="max-height:48vh">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${m.body?esc(m.body):''}${reqMsgFilesHTML(m)}${reqActStatusHTML(m)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):`<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on ${rep}'s request page.</div>`}</div>
       <div class="rq-reply" id="rqReplyBox">
         <button class="rq-attach" title="Attach files (or paste / drag them in) — saved to SharePoint" onclick="$('rqMsgFiles').click()">📎</button>
         <input type="file" id="rqMsgFiles" multiple class="hidden" onchange="reqMsgAdd(this.files);this.value=''">
