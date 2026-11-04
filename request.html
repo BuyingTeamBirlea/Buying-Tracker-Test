@@ -709,7 +709,12 @@ document.querySelectorAll('#filterSeg button').forEach(b=>b.addEventListener('cl
   filter=b.dataset.f; document.querySelectorAll('#filterSeg button').forEach(x=>x.classList.toggle('active',x===b)); renderList();
 }));
 const stCls=s=>'st-'+s.replace(/\s+/g,'-');
-const reqTitle=r=>r.request_type==='Customer Service'?`SKU ${esc(r.title)}${r.cs_ticket?' · '+esc(r.cs_ticket):''}`:esc(r.title);
+// Customer Service tickets read "Ticket 1000 - HAP-ALAB46OAK" (same as the tracker)
+const reqTitle=r=>{
+  if(r.request_type!=='Customer Service') return esc(r.title);
+  const t=(r.cs_ticket||'').trim().replace(/^ticket\s*/i,'');
+  return t?`Ticket ${esc(t)} - ${esc(r.title)}`:esc(r.title);
+};
 function assigneeHTML(r){
   if(!OPEN_ST.has(r.status)&&!r.assigned_to) return '';
   return r.assigned_to?`<span>👤 ${esc(nameOf(r.assigned_to))} is on it</span>`:`<span style="color:var(--amber)">Not assigned yet</span>`;
