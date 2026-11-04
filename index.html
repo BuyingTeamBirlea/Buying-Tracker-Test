@@ -648,6 +648,11 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
 .rq-link:hover{border-color:var(--accent)}
 .rq-msgs{display:flex;flex-direction:column;gap:7px;max-height:280px;overflow-y:auto}
 .rq-msg{max-width:85%;padding:8px 11px;border-radius:12px;font-size:.86rem;line-height:1.45;white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);align-self:flex-start}
+.rq-msg.del{position:relative;padding-right:26px}
+.rq-msg-x{position:absolute;top:4px;right:4px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:.72rem;line-height:1;padding:3px 5px;border-radius:4px;opacity:.5;transition:opacity .15s}
+.rq-msg:hover .rq-msg-x{opacity:1}
+.rq-msg-x:hover{color:var(--red);background:var(--bg3)}
+body.view-only .rq-msg-x{display:none}
 .rq-msg.mine{align-self:flex-end;background:rgba(79,110,247,.14);border-color:rgba(79,110,247,.35)}
 .rq-msg small{display:block;font-size:.68rem;color:var(--text3);margin-top:3px}
 .rq-reply{display:flex;gap:8px;margin-top:8px}
@@ -6244,6 +6249,18 @@ const REQ_TYPE_STAGE={'Customer Service':'Awaiting Response','Margin Sheets':'To
 const reqTitleText=r=>r.request_type==='Customer Service'?`SKU ${r.title}${r.cs_ticket?' · '+r.cs_ticket:''}`:r.title;
 let reqOpenActions=[], _reqNotifs=[], _reqActs=[];
 // Status line under the "⚡ Action needed" message — the requester ticks it off on their page
+const reqIsBuyerMsg=(m,me)=>m.author===me||reqBuyers.some(b=>b.email===m.author);
+function deleteReqMsg(msgId){
+  const act=_reqActs.find(a=>a.message_id===msgId&&a.status==='open');
+  confirmAction('Remove this message?',`It disappears from both sides of the chat${_reqFiles.some(f=>f.message_id===msgId)?' along with its attachments (copies already saved in SharePoint stay there)':''}.${act?' The action it asked for is cancelled too.':''}`,async()=>{
+    try{
+      if(act) await SB.patch(`request_actions?id=eq.${act.id}`,{status:'cancelled'});
+      await SB.delete(`request_messages?id=eq.${msgId}`);
+      if(act) await loadRequests();
+      await refreshReqModal(); toast('Message removed');
+    }catch(e){ toast('Could not remove: '+e.message,'error'); }
+  });
+}
 function reqActStatusHTML(m){
   const a=_reqActs.find(x=>x.message_id===m.id); if(!a) return '';
   const st=a.status==='done'?`<span style="color:var(--green)">☑ Actioned by ${esc(reqName(a.done_by||''))}${a.done_at?' · '+fmtEntryDate(a.done_at.slice(0,10),false)+' '+a.done_at.slice(11,16):''}</span>`
@@ -6302,8 +6319,7 @@ function reqDisplayRef(r,items){ const it=(items||[]).find(i=>i.refCode); return
 // Status shown for a ticket: Complete, else the linked item card status(es), else In Progress
 const reqOpenAction=id=>reqOpenActions.find(a=>a.request_id===id&&a.status==='open');
 function reqStatusHTML(r,items){
-  const wait=r.status!=='Complete'&&reqOpenAction(r.id)?`<span class="rq-wait" title="${esc(reqOpenAction(r.id).instruction)}">⏳ Waiting on ${esc(reqName(r.requested_by))}</span> `:'';
-  return wait+reqStatusBase(r,items);
+  return reqStatusBase(r,items);
 }
 function reqStatusBase(r,items){
   if(r.status==='Complete') return `<span class="rq-pill rq-Complete">Complete</span>`;
@@ -6313,8 +6329,6 @@ function reqStatusBase(r,items){
 // Chase tracking: the item card's days-inactive when linked (worst card), else days since the buying team last actioned the ticket
 function reqLastActionedHTML(r,items){
   if(r.status==='Complete') return '<span style="color:var(--text3);font-size:.78rem">—</span>';
-  const a=reqOpenAction(r.id);
-  if(a) return `<span class="rq-wait" title="Chase paused — waiting on ${esc(reqName(r.requested_by))} since ${fmtEntryDate(a.created_at.slice(0,10),true)}">⏳ ${reqDays(a.created_at)}d</span>`;
   if(items&&items.length){
     const tracked=items.filter(i=>!i.archived&&!NO_INACTIVE.has(i.stage));
     if(!tracked.length) return daysBadge(0,items[0].stage);
@@ -6589,7 +6603,7 @@ async function refreshReqModal(noFetch){
     const oa=reqOpenAction(id);
     html=`<div class="rq-sec" style="margin-bottom:0">
       <div style="display:flex;gap:10px;justify-content:flex-end;font-size:.72rem;margin-bottom:10px"><span id="spStatus-request"></span><span id="spStatus-media"></span></div>
-      <div class="rq-msgs" id="rqMsgs" style="max-height:48vh">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${m.body?esc(m.body):''}${reqMsgFilesHTML(m)}${reqActStatusHTML(m)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):`<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on ${rep}'s request page.</div>`}</div>
+      <div class="rq-msgs" id="rqMsgs" style="max-height:48vh">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}${reqIsBuyerMsg(m,me)?' del':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${reqIsBuyerMsg(m,me)?`<button class="rq-msg-x" title="Remove this message${_reqActs.some(a=>a.message_id===m.id&&a.status==='open')?' (also cancels the action)':''}" onclick="deleteReqMsg('${m.id}')">✕</button>`:''}${m.body?esc(m.body):''}${reqMsgFilesHTML(m)}${reqActStatusHTML(m)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):`<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on ${rep}'s request page.</div>`}</div>
       <div class="rq-reply" id="rqReplyBox">
         <button class="rq-attach" title="Attach files (or paste / drag them in) — saved to SharePoint" onclick="$('rqMsgFiles').click()">📎</button>
         <input type="file" id="rqMsgFiles" multiple class="hidden" onchange="reqMsgAdd(this.files);this.value=''">
@@ -6597,8 +6611,6 @@ async function refreshReqModal(noFetch){
         <button class="btn" id="rqSendBtn" onclick="sendReqMsg('${id}')">Send</button></div>
       <div class="rq-pend" id="rqPend">${reqPendChips()}</div>
       ${open?`<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
-        ${oa?`<span class="rq-wait" title="${esc(oa.instruction)}" style="max-width:55%;overflow:hidden;text-overflow:ellipsis">⏳ Waiting on ${rep}: ${esc(oa.instruction)}</span>
-          <button class="btn btn-ghost btn-xs" onclick="cancelReqAct('${oa.id}')">✕ Cancel</button>`:''}
         <div class="spacer" style="flex:1"></div>
         <button class="btn btn-ghost btn-sm" onclick="openReqNotify()" title="Email ${rep} about an update">🔔 Notify ${rep}</button>
         ${oa?'':`<button class="btn btn-ghost btn-sm" onclick="openReqAct()" title="Ask ${rep} to do something before this can progress">⚡ Request action</button>`}
@@ -6607,9 +6619,6 @@ async function refreshReqModal(noFetch){
   }else{
     const doneFiles=all.filter(([f])=>f.is_completion);
     html=`
-    ${(a=>a?`<div class="rq-act"><b class="h">⏳ Waiting on ${rep} · since ${fmtEntryDate(a.created_at.slice(0,10),true)}${a.due_date?' · due '+fmtEntryDate(a.due_date,true):''}</b>
-      <div class="ins">${esc(a.instruction)}</div>
-      <div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="markReqActDone('${a.id}')">✔ Mark done for them</button><button class="btn btn-ghost btn-sm" onclick="cancelReqAct('${a.id}')">✕ Cancel action</button></div></div>`:'')(reqOpenAction(id))}
     ${r.status==='Declined'?`<div class="rq-desc" style="border-color:rgba(239,68,68,.4)"><b>Declined</b>${r.decline_reason?' — '+esc(r.decline_reason):''}</div>`:''}
     ${r.status==='Complete'&&(r.completion_notes||doneFiles.length)?`<div class="rq-done">
       <div class="section-title" style="margin:0">✔ Completed${r.completed_at?' '+fmtEntryDate(r.completed_at.slice(0,10),true):''} — sent to ${rep}</div>
