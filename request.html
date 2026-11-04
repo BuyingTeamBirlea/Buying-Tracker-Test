@@ -75,6 +75,8 @@ button,input,select,textarea{font-family:inherit}
 .ref{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text3)}
 .req-title{font-weight:600;font-size:.95rem}
 .req-meta{font-size:.8rem;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap}
+.cs-meta{gap:0}
+.cs-meta>span+span::before{content:'•';margin:0 8px;color:var(--text3)}
 .req-side{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:6px}
 .side-row{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:nowrap}
 .side-row .mini-item{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -647,6 +649,8 @@ async function boot(){
   $('trackerLink').classList.toggle('hidden',myRole!=='buyer'&&myRole!=='viewer');
   try{ const u=await SB.get(`app_users?email=eq.${encodeURIComponent(me)}&select=department`); myDept=u&&u[0]?u[0].department:''; }catch(e){ myDept=''; }
   if(myDept){ $('scopeDeptBtn').textContent=`All ${myDept}`; $('scopeSeg').classList.remove('hidden'); }
+  // Customer Service work as one queue: open on every CS ticket, with "My requests" as the switch
+  if(myDept==='Customer Service'){ scope='dept'; $('scopeSeg').prepend($('scopeDeptBtn')); }
   setScope(scope);
   if(!myRole){ $('noRole').classList.remove('hidden'); $('listView').classList.add('hidden'); return; }
   await loadAll();
@@ -733,7 +737,7 @@ function setScope(sc){
   document.querySelectorAll('#scopeSeg button').forEach(b=>b.classList.toggle('active',b.dataset.s===scope));
   if(scope==='dept'){
     $('listTitle').textContent=`All ${myDept} requests`;
-    $('listSub').textContent=`Every request the ${myDept} team has sent, and the item cards as they move through buying.`;
+    $('listSub').textContent=`Every request from the ${myDept} team.`;
   }else{
     $('listTitle').textContent='My requests';
     $('listSub').textContent=`Track every request you've sent and see the item cards as they move through buying.`;
@@ -804,7 +808,9 @@ function renderList(){
       <div>
         <div class="req-top"><span class="ref">${esc(displayRef(r))}</span></div>
         <div class="req-title">${reqTitle(r)}${openAction(r.id)?`<span class="act-tag" title="${esc(openAction(r.id).instruction)}">⚡ ${esc(firstName(r.requested_by))} - Action Needed</span>`:''}</div>
-        <div class="req-meta">${r.customer?`<span>${esc(r.customer)}</span>`:''}<span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}${r.requested_by!==me?' by '+esc(nameOf(r.requested_by)):''}</span>${assigneeHTML(r)}</div>
+        ${r.request_type==='Customer Service'
+          ?`<div class="req-meta cs-meta"><span>Customer Service</span><span>${r.requested_by===me?'You':esc(nameOf(r.requested_by))}</span><span>Sent ${fmtDate(r.created_at)}</span>${assigneeHTML(r)||`<span>${esc(r.status)}</span>`}</div>`
+          :`<div class="req-meta">${r.customer?`<span>${esc(r.customer)}</span>`:''}<span>${esc(r.request_type)}</span><span>Sent ${fmtDate(r.created_at)}${r.requested_by!==me?' by '+esc(nameOf(r.requested_by)):''}</span>${assigneeHTML(r)}</div>`}
         ${r.rep_unread||(r.status==='Complete'&&r.completion_notes)?`<div class="req-flags">${r.rep_unread?'<span class="new-dot">● Update</span>':''}${r.status==='Complete'&&r.completion_notes?'<span class="done-tag">📄 Details ready</span>':''}</div>`:''}
       </div>
       <div class="req-side">
