@@ -648,6 +648,10 @@ body.light-mode .rq-Complete{color:#15803d}body.light-mode .rq-Declined{color:#b
 .rq-link:hover{border-color:var(--accent)}
 .rq-msgs{display:flex;flex-direction:column;gap:7px;max-height:280px;overflow-y:auto}
 .rq-msg{max-width:85%;padding:8px 11px;border-radius:12px;font-size:.86rem;line-height:1.45;white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);align-self:flex-start}
+.rq-seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px;gap:2px}
+.rq-seg button{background:none;border:none;color:var(--text2);font-size:.8rem;font-weight:500;padding:5px 11px;border-radius:5px;cursor:pointer;white-space:nowrap;font-family:inherit}
+.rq-seg button:hover{color:var(--text)}
+.rq-seg button.on{background:var(--accent);color:#fff}
 .rq-msg.del{position:relative;padding-right:26px}
 .rq-msg-x{position:absolute;top:4px;right:4px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:.72rem;line-height:1;padding:3px 5px;border-radius:4px;opacity:.5;transition:opacity .15s}
 .rq-msg:hover .rq-msg-x{opacity:1}
@@ -892,13 +896,14 @@ body.light-mode .rq-wait,body.light-mode .rq-act b.h{color:#dc2626}
         <span class="search-icon">🔍</span>
         <input type="text" id="reqSearch" placeholder="Search ref, customer, title, rep…" oninput="renderRequestsPage()">
       </div>
-      <select id="reqFilterSel" onchange="renderRequestsPage()" style="font-size:.82rem">
-        <option value="open">Open</option>
-        <option value="closed">Closed</option>
-        <option value="mine">Assigned to me</option>
-        <option value="unassigned">Unassigned</option>
-        <option value="all">All</option>
-      </select>
+      <div class="rq-seg" id="reqDeptSeg">
+        <button data-v="Sales" onclick="setReqSeg('dept',this.dataset.v)">💼 Sales</button>
+        <button data-v="Customer Service" onclick="setReqSeg('dept',this.dataset.v)">🎧 Customer Service</button>
+      </div>
+      <div class="rq-seg" id="reqStatusSeg">
+        <button data-v="open" class="on" onclick="setReqSeg('status',this.dataset.v)">Open</button>
+        <button data-v="closed" onclick="setReqSeg('status',this.dataset.v)">Closed</button>
+      </div>
       <button class="btn btn-sm" style="margin-left:auto" onclick="openReqNew()" title="Create a request on someone's behalf, e.g. for work already under way">＋ New request</button>
     </div>
     <div class="logi-table-wrap">
@@ -6247,7 +6252,12 @@ const reqBuyers=[ // who requests can be assigned to, in dropdown order
 const REQ_TYPE_CATEGORY={'Customer Service':'Customer Service Enquiries','Margin Sheets':'Miscellaneous','BC Set Up':'Miscellaneous','PIM Assistance':'Miscellaneous'};
 // Starting status per request type (anything not listed → Quoting)
 const REQ_TYPE_STAGE={'Customer Service':'Awaiting Response','Margin Sheets':'To-Do','BC Set Up':'To-Do','PIM Assistance':'To-Do'};
-const reqTitleText=r=>r.request_type==='Customer Service'?`SKU ${r.title}${r.cs_ticket?' · '+r.cs_ticket:''}`:r.title;
+// Customer Service tickets read "Ticket 1000 - HAP-ALAB46OAK"
+const reqTitleText=r=>{
+  if(r.request_type!=='Customer Service') return r.title;
+  const t=(r.cs_ticket||'').trim().replace(/^ticket\s*/i,'');
+  return t?`Ticket ${t} - ${r.title}`:r.title;
+};
 let reqOpenActions=[], _reqNotifs=[], _reqActs=[];
 // Status line under the "⚡ Action needed" message — the requester ticks it off on their page
 const reqIsBuyerMsg=(m,me)=>m.author===me||reqBuyers.some(b=>b.email===m.author);
@@ -6362,9 +6372,17 @@ function updateReqBadge(){
   bn.innerHTML=`<span>📥 ${parts.join(' · ')}</span><div class="spacer"></div><button class="btn btn-sm" onclick="showPage('requests')">View requests</button>`;
 }
 
+// Team buttons: click Sales / Customer Service to filter, click again to show both
+let _reqDept='', _reqStatus='open';
+function setReqSeg(kind,v){
+  if(kind==='dept') _reqDept=_reqDept===v?'':v; else _reqStatus=v;
+  document.querySelectorAll('#reqDeptSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===_reqDept));
+  document.querySelectorAll('#reqStatusSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===_reqStatus));
+  renderRequestsPage();
+}
 function renderRequestsPage(){
   const q=($('reqSearch')?.value||'').trim().toLowerCase();
-  const f=$('reqFilterSel')?.value||'open';
+  const f=_reqStatus;
   const meEmail=(getStoredSession()?.user?.email||'').toLowerCase();
   let rows=reqData.filter(r=>{
     const open=REQ_OPEN.has(r.status);
@@ -6374,6 +6392,7 @@ function renderRequestsPage(){
     if(f==='unassigned') return open&&!r.assigned_to;
     return open;
   });
+  if(_reqDept) rows=rows.filter(r=>(r.department||'Sales')===_reqDept);
   if(q) rows=rows.filter(r=>[r.ref,reqDisplayRef(r,reqItemsFor(r.id)),r.department,r.customer,r.title,r.cs_ticket,r.requested_by,r.request_type,r.description,r.assigned_to,reqName(r.assigned_to)].some(v=>(v||'').toLowerCase().includes(q)));
   rows.sort((a,b)=>{
     if(f!=='closed'){
