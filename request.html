@@ -833,9 +833,9 @@ function progressHTML(p){
 
 // ═══ DETAIL ═══
 // Three views, like the tabs on an item card: Request · Timeline · Messages
-let detailFiles=[], detailMsgs=[], detailTimeline=[], detailItemFiles=[], blobCache={}, detailTab='info';
+let detailFiles=[], detailMsgs=[], detailTimeline=[], detailItemFiles=[], blobCache={}, detailTab='timeline';
 async function openDetail(id){
-  openId=id; detailTab='info'; msgPending=[]; $('detailOv').classList.remove('hidden');
+  openId=id; detailTab='timeline'; msgPending=[]; $('detailOv').classList.remove('hidden');
   $('dTabs').innerHTML=''; $('dBody').innerHTML='<div class="hint">Loading…</div>';
   await renderDetail(id,false);
   const r=requests.find(x=>x.id===id);
@@ -878,20 +878,17 @@ function renderDetailView(){
   $('dTitle').innerHTML=reqTitle(r);
   const tlCount=detailTimeline.length;
   const tab=(k,label,extra)=>`<button class="dtab${detailTab===k?' active':''}" onclick="setDetailTab('${k}')">${label}${extra||''}</button>`;
+  if(!['timeline','messages','files'].includes(detailTab)) detailTab='timeline';
   $('dTabs').innerHTML=
-    tab('info','📋 Request')+
-    tab('timeline','🕒 Timeline',items.length?`<span class="cnt">${tlCount}</span>`:'')+
-    tab('files','📁 Files',(()=>{ const n=filesForView(false).length; return n?`<span class="cnt">${n}</span>`:''; })())+
-    tab('media','🖼️ Media',(()=>{ const n=filesForView(true).length; return n?`<span class="cnt">${n}</span>`:''; })())+
-    tab('messages','💬 Messages'+(detailMsgs.some(m=>detailFiles.some(f=>f.message_id===m.id))?' 📎':''),detailMsgs.length?`<span class="cnt">${detailMsgs.length}</span>`:'');
+    tab('timeline','🕒 Timeline',items.length&&tlCount?`<span class="cnt">${tlCount}</span>`:'')+
+    tab('messages','💬 Messages'+(detailMsgs.some(m=>detailFiles.some(f=>f.message_id===m.id))?' 📎':''),detailMsgs.length?`<span class="cnt">${detailMsgs.length}</span>`:'')+
+    tab('files','📁 Files & Media',(()=>{ const n=filesForView().length; return n?`<span class="cnt">${n}</span>`:''; })());
   const body=$('dBody');
-  if(detailTab==='timeline') body.innerHTML=timelineViewHTML(r,items);
-  else if(detailTab==='files') body.innerHTML=filesViewHTML(r,false);
-  else if(detailTab==='media') body.innerHTML=filesViewHTML(r,true);
+  if(detailTab==='files') body.innerHTML=filesViewHTML(r);
   else if(detailTab==='messages') body.innerHTML=messagesViewHTML(r);
-  else body.innerHTML=infoViewHTML(r);
+  else body.innerHTML=infoViewHTML(r)+`<div><div class="sec-title">Timeline</div>${timelineViewHTML(r,items)}</div>`;
   if(draft&&$('msgText')) $('msgText').value=draft;
-  if(detailTab==='info') hydrateThumbs();
+  if(detailTab!=='messages') hydrateThumbs();
   if(detailTab==='messages'){ wireMsgBox(); hydrateThumbs(); const m=$('dMsgs'); if(m) m.scrollTop=m.scrollHeight; }
 }
 
@@ -917,12 +914,10 @@ function infoViewHTML(r){
       </div>
     </div>
     ${r.description?`<div><div class="sec-title">${r.request_type==='Customer Service'?'Query':'Details'}</div><div class="desc">${esc(r.description)}</div></div>`:''}
-    <div>
-      <div class="sec-title">Attachments (${repFiles.length})</div>
-      ${repFiles.length?`<div class="thumbs" id="dThumbs">${repFiles.map(([f,i])=>thumbHTML(f,i)).join('')}</div>`:'<div class="hint">No attachments.</div>'}
-      ${OPEN_ST.has(r.status)?`<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="$('addFiles').click()">📎 Add more files</button>
-      <input type="file" id="addFiles" multiple class="hidden" onchange="addMoreFiles(event,'${r.id}')">`:''}
-    </div>`;
+    ${repFiles.length?`<div>
+      <div class="sec-title">Attachments sent with the request (${repFiles.length})</div>
+      <div class="thumbs" id="dThumbs">${repFiles.map(([f,i])=>thumbHTML(f,i)).join('')}</div>
+    </div>`:''}`;
 }
 
 // 2 ── Timeline: every update on each linked item card, oldest → latest, with its deadlines
@@ -967,14 +962,18 @@ function timelineViewHTML(r,items){
 const KIND_LABEL={margin:'Margin sheet',spec:'Spec form',quote:'Quotation',request:'Sales request file',media:'Media'};
 const isImgName=n=>/\.(jpe?g|png|webp|gif|heic)$/i.test(n||'');
 const isVidName=n=>/\.(mp4|mov|webm)$/i.test(n||'');
-function filesForView(media){
+function filesForView(){
   const out=[];
-  detailFiles.forEach((f,i)=>{ if(f.message_id||!(f.shared_by_buyer||f.is_completion)) return;
-    const m=f.is_image||isImgName(f.name)||isVidName(f.name);
-    if(m===media) out.push({src:'ticket',i,name:f.name,url:f.sp_url||'',sp:!!f.sp_url,group:'From the buying team'}); });
-  detailItemFiles.forEach(f=>{
-    const m=f.is_image||isImgName(f.name)||isVidName(f.name);
-    if(m===media) out.push({src:'item',name:f.name,url:f.url,sp:!!f.sp_path,kind:f.is_upload?(KIND_LABEL[f.kind]||'File'):'Link',group:`${f.item_name}${f.ref_code?' · '+f.ref_code:''}`}); });
+  const isM=f=>!!(f.is_image||isImgName(f.name)||isVidName(f.name));
+  detailFiles.forEach((f,i)=>{
+    let group, kind='';
+    if(f.message_id){ group='Shared in Messages'; const who=(detailMsgs.find(m=>m.id===f.message_id)||{}).author||f.uploaded_by||''; kind=who===me?'From you':who?'From '+nameOf(who):''; }
+    else if(f.shared_by_buyer||f.is_completion) group='From the buying team';
+    else group='Sent with the request';
+    out.push({src:'ticket',i,f,name:f.name,url:f.sp_url||'',sp:!!f.sp_url,media:isM(f),kind,group});
+  });
+  detailItemFiles.forEach(f=>out.push({src:'item',name:f.name,url:f.url,sp:!!f.sp_path,media:isM(f),
+    kind:f.is_upload?(KIND_LABEL[f.kind]||'File'):'Link',group:`${f.item_name}${f.ref_code?' · '+f.ref_code:''}`}));
   return out;
 }
 // Office desktop app link — same as the Buying Tracker (edits save straight back to SharePoint)
@@ -1023,22 +1022,27 @@ function openViewFile(src,key){
   if(src==='ticket'){ const f=detailFiles[key]; if(f&&f.sp_url) window.open(f.sp_url,'_blank','noopener'); else openFile(key); return; }
   window.open(key,'_blank','noopener');
 }
-function filesViewHTML(r,media){
-  const list=filesForView(media);
-  if(!list.length) return `<div class="hint">${media?'No images or videos yet.':'No files yet.'} Anything the buying team shares on this request${progress.some(p=>p.request_id===r.id)?' or adds to its item cards':''} will show here.</div>`;
-  const groups=[...new Set(list.map(x=>x.group))];
+function filesViewHTML(r){
+  const list=filesForView();
+  if(!list.length) return `<div class="hint">No files or images yet. Anything sent with the request, shared in Messages${progress.some(p=>p.request_id===r.id)?' or added to its item cards':''} will show here.</div>`;
+  const order=['Sent with the request','Shared in Messages','From the buying team'];
+  const groups=[...new Set(list.map(x=>x.group))].sort((a,b)=>(order.indexOf(a)+1||9)-(order.indexOf(b)+1||9));
   const open=x=>x.src==='ticket'?`openViewFile('ticket',${x.i})`:`openViewFile('item','${esc(x.url).replace(/'/g,"\\'")}')`;
-  return groups.map(g=>{
-    const rows=list.filter(x=>x.group===g);
-    return `<div class="file-group"><div class="sec-title">${esc(g)} (${rows.length})</div>${media
-      ?`<div class="thumbs">${rows.map(x=>`<div class="thumb" onclick="${open(x)}" title="${esc(x.name)}">
+  const thumb=x=>x.src==='ticket'&&!x.url
+    ?`<div class="thumb" data-i="${x.i}" onclick="${open(x)}" title="${esc(x.name)}"><span><span class="ic">${isVidName(x.name)?'🎬':'🖼️'}</span>${esc(x.name)}</span></div>`
+    :`<div class="thumb" onclick="${open(x)}" title="${esc(x.name)}">
           <span><span class="ic">${isVidName(x.name)?'🎬':'🖼️'}</span>${esc(x.name)}</span>
-          ${!isVidName(x.name)&&x.url?`<img src="${esc(x.sp?spThumb(x.url):x.url)}" alt="" onerror="${x.sp?'spImgFail(this)':'this.remove()'}">`:''}</div>`).join('')}</div>`
-      :rows.map(x=>{
-        const desk=x.sp&&x.url?officeDesktopUrl(x.url,x.name):null;
-        return `<div class="f-row" title="${esc(x.name)}"><span>${fileIcon(x.name)}</span><span class="nm" onclick="${open(x)}">${esc(x.name)}</span>${x.kind?`<span class="k">${esc(x.kind)}</span>`:''}
+          ${!isVidName(x.name)&&x.url?`<img src="${esc(x.sp?spThumb(x.url):x.url)}" alt="" onerror="${x.sp?'spImgFail(this)':'this.remove()'}">`:''}</div>`;
+  const row=x=>{
+    const desk=x.sp&&x.url?officeDesktopUrl(x.url,x.name):null;
+    return `<div class="f-row" title="${esc(x.name)}"><span>${fileIcon(x.name)}</span><span class="nm" onclick="${open(x)}">${esc(x.name)}</span>${x.kind?`<span class="k">${esc(x.kind)}</span>`:''}
           ${desk?`<a class="f-act desk" href="${esc(desk.href)}" title="Opens in the ${desk.label} app on your computer">🖥 Open in ${desk.label}</a>`:''}
-          <button class="f-act" onclick="${open(x)}" title="${x.sp?'Open in SharePoint (browser)':'Open'}">↗ ${desk?'Browser':'Open'}</button></div>`;}).join('')}</div>`;
+          <button class="f-act" onclick="${open(x)}" title="${x.sp?'Open in SharePoint (browser)':'Open'}">↗ ${desk?'Browser':'Open'}</button></div>`;};
+  return groups.map(g=>{
+    const rows=list.filter(x=>x.group===g), med=rows.filter(x=>x.media), fil=rows.filter(x=>!x.media);
+    return `<div class="file-group"><div class="sec-title">${esc(g)} (${rows.length})</div>
+      ${fil.map(row).join('')}
+      ${med.length?`<div class="thumbs"${fil.length?' style="margin-top:8px"':''}>${med.map(thumb).join('')}</div>`:''}</div>`;
   }).join('')+(list.some(x=>x.sp)?'<div class="sp-note">Files open in SharePoint — you\'ll need to be signed in with your Birlea Microsoft account.</div>':'');
 }
 

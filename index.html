@@ -1419,10 +1419,6 @@ body.light-mode .rq-wait,body.light-mode .rq-act b.h{color:#c2410c}
     <div class="modal-body">
       <div class="field" style="margin-bottom:12px"><label>What do they need to do? *</label>
         <textarea id="raIns" style="min-height:90px" placeholder="e.g. Review the attached margin sheet and confirm the RRP"></textarea></div>
-      <div class="form-row">
-        <div class="field"><label>Due by (optional)</label><input type="date" id="raDue"></div>
-        <div class="field"></div>
-      </div>
       <div class="field"><label>Files (optional) — saved to SharePoint, shown in the chat</label>
         <div class="rq-drop" id="raDrop" onclick="$('raFiles').click()">📎 Drop files here or click to choose</div>
         <input type="file" id="raFiles" multiple class="hidden" onchange="raAdd(this.files);this.value=''">
@@ -6538,16 +6534,14 @@ async function refreshReqModal(noFetch){
   const tab=(k,label,n)=>`<button class="tab-btn${_reqTab===k?' active':''}" onclick="setReqTab('${k}')">${label}${n?`<span class="cnt">${n}</span>`:''}</button>`;
   const isMediaName=n=>isImageFile(n)||isVideo(n)||/\.(mov|webm)$/i.test(n||'');
   const isMediaRF=f=>f.is_image||isMediaName(f.name);
-  const nFiles=all.filter(([f])=>!f.message_id&&!isMediaRF(f)).length+items.reduce((n,i)=>n+(i.files||[]).filter(f=>!isMediaName(f.name)).length+(i.fileLinks||[]).length,0);
-  const nMedia=all.filter(([f])=>!f.message_id&&isMediaRF(f)).length+items.reduce((n,i)=>n+(i.images||[]).length,0);
-  $('rqTabs').innerHTML=tab('details','📋 Details')+tab('files','📁 Files',nFiles)+tab('media','🖼️ Media',nMedia)+tab('messages','💬 Messages'+(all.some(([f])=>f.message_id)?' 📎':''),_reqMsgs.length);
+  if(!['details','messages','files'].includes(_reqTab)) _reqTab='details';
+  const nAll=all.length+items.reduce((n,i)=>n+(i.files||[]).filter(f=>!isMediaName(f.name)).length+(i.fileLinks||[]).length+(i.images||[]).length,0);
+  $('rqTabs').innerHTML=tab('details','📋 Details')+tab('messages','💬 Messages'+(all.some(([f])=>f.message_id)?' 📎':''),_reqMsgs.length)+tab('files','📁 Files & Media',nAll);
 
   let html='';
-  if(_reqTab==='files'||_reqTab==='media'){
-    const media=_reqTab==='media';
+  if(_reqTab==='files'){
     const unmoved=repFiles.filter(([f])=>!f.sp_path);
-    const pick=list=>list.filter(([f])=>isMediaRF(f)===media);
-    const shared=pick(sharedFiles), mine=pick(repFiles);
+    const chatFiles=all.filter(([f])=>f.message_id);
     const KIND_LABEL={margin:'Margin sheet',spec:'Spec form',quote:'Quotation',request:'Sales request file'};
     // one file row: name opens in the browser, Office files also get "Open in Excel/Word/PowerPoint"
     const fileRow=(name,url,kindLabel,isSp)=>{
@@ -6558,35 +6552,41 @@ async function refreshReqModal(noFetch){
     };
     const mediaThumb=m=>`<div class="rq-thumb" onclick="window.open('${esc(m.url)}','_blank')" title="${esc(m.name)}">
         <span><span class="rq-ic">${isVideo(m.name)?'🎬':'🖼️'}</span>${esc(m.name)}</span>${isVideo(m.name)?'':`<img src="${esc(m.spPath?spThumbUrl(m.url):m.url)}" alt="" onerror="this.remove()">`}</div>`;
+    const cnt=n=>` <span style="text-transform:none;letter-spacing:0;font-weight:400">(${n})</span>`;
     const cardSecs=items.map(it=>{
-      if(media){
-        const imgs=it.images||[];
-        return `<div class="rq-sec"><div class="section-title">Media · ${esc(it.name)}${it.refCode?' · '+esc(it.refCode):''} <span style="text-transform:none;letter-spacing:0;font-weight:400">(${imgs.length})</span></div>
-          ${imgs.length?`<div class="rq-thumbs">${imgs.map(mediaThumb).join('')}</div>`:'<div style="font-size:.84rem;color:var(--text3)">No images or videos on this card.</div>'}</div>`;
-      }
-      const files=(it.files||[]).filter(f=>!isMediaName(f.name)), links=it.fileLinks||[];
-      return `<div class="rq-sec"><div class="section-title">Files · ${esc(it.name)}${it.refCode?' · '+esc(it.refCode):''} <span style="text-transform:none;letter-spacing:0;font-weight:400">(${files.length+links.length})</span></div>
+      const files=(it.files||[]).filter(f=>!isMediaName(f.name)), links=it.fileLinks||[], imgs=it.images||[];
+      return `<div class="rq-sec"><div class="section-title">Item card · ${esc(it.name)}${it.refCode?' · '+esc(it.refCode):''}${cnt(files.length+links.length+imgs.length)}</div>
         ${files.map(f=>fileRow(f.name,f.url,KIND_LABEL[f.kind]||'File',!!f.spPath||/sharepoint\.com/i.test(f.url||''))).join('')}
         ${links.map(l=>fileRow(l.name||l.url,l.url,'Link',/sharepoint\.com/i.test(l.url||''))).join('')}
-        ${!files.length&&!links.length?'<div style="font-size:.84rem;color:var(--text3)">No files on this card.</div>':''}</div>`;
+        ${imgs.length?`<div class="rq-thumbs"${files.length||links.length?' style="margin-top:8px"':''}>${imgs.map(mediaThumb).join('')}</div>`:''}
+        ${!files.length&&!links.length&&!imgs.length?'<div style="font-size:.84rem;color:var(--text3)">No files or images on this card.</div>':''}</div>`;
     }).join('');
     html=`
-    ${shared.length?`<div class="rq-sec"><div class="section-title">Shared with ${rep} earlier (${shared.length})</div>
-      <div class="rq-sub">Files now go through 💬 Messages — attach them there.</div>
-      <div class="rq-thumbs">${shared.map(([f,i])=>reqThumbHTML(f,i,true)).join('')}</div></div>`:''}
-    ${cardSecs}
-    <div class="rq-sec">
-      <div class="section-title" style="display:flex;align-items:center;gap:8px">${media?'Images':'Attachments'} from ${rep} (${mine.length})
-        ${!media&&unmoved.length&&items.length?`<span style="margin-left:auto;display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-weight:500">
+    ${repFiles.length?`<div class="rq-sec">
+      <div class="section-title" style="display:flex;align-items:center;gap:8px">Sent with the request by ${rep}${cnt(repFiles.length)}
+        ${unmoved.length&&items.length?`<span style="margin-left:auto;display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-weight:500">
           ${items.length>1?`<select id="rqSpTarget" style="font-size:.75rem;padding:4px 24px 4px 8px">${items.map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join('')}</select>`:''}
           <button class="btn btn-sm" onclick="copyRequestFilesToSp('${id}',$('rqSpTarget')?.value||'${items[0].id}')">📁 Copy ${unmoved.length} to SharePoint</button></span>`:''}
       </div>
-      ${mine.length?`<div class="rq-thumbs" id="rqThumbs">${mine.map(([f,i])=>reqThumbHTML(f,i)).join('')}</div>`
-        :`<div style="font-size:.84rem;color:var(--text3)">${media?'No images from the requester.':'No attachments.'}</div>`}
-      ${!media&&unmoved.length&&items.length?'<div class="rq-sub" style="margin-top:6px">Copy to SharePoint moves all their attachments (files and images) onto the item card.</div>':''}
-    </div>`;
+      <div class="rq-thumbs" id="rqThumbs">${repFiles.map(([f,i])=>reqThumbHTML(f,i)).join('')}</div>
+      ${unmoved.length&&items.length?'<div class="rq-sub" style="margin-top:6px">Copy to SharePoint moves these onto the item card.</div>':''}
+    </div>`:''}
+    ${chatFiles.length?`<div class="rq-sec"><div class="section-title">Shared in Messages${cnt(chatFiles.length)}</div>
+      <div class="rq-thumbs">${chatFiles.map(([f,i])=>reqThumbHTML(f,i)).join('')}</div></div>`:''}
+    ${sharedFiles.length?`<div class="rq-sec"><div class="section-title">Shared with ${rep} earlier${cnt(sharedFiles.length)}</div>
+      <div class="rq-thumbs">${sharedFiles.map(([f,i])=>reqThumbHTML(f,i,true)).join('')}</div></div>`:''}
+    ${cardSecs}
+    ${!nAll?`<div style="font-size:.84rem;color:var(--text3)">No files or images yet. Anything sent with the request, shared in 💬 Messages or added to a linked item card shows here.</div>`:''}`;
   }else if(_reqTab==='messages'){
+    const oa=reqOpenAction(id);
     html=`<div class="rq-sec" style="margin-bottom:0">
+      ${open?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        ${oa?`<span class="rq-wait" title="${esc(oa.instruction)}" style="max-width:55%;overflow:hidden;text-overflow:ellipsis">⏳ Waiting on ${rep}: ${esc(oa.instruction)}</span>
+          <button class="btn btn-ghost btn-xs" onclick="cancelReqAct('${oa.id}')">✕ Cancel</button>`:''}
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" onclick="openReqNotify()" title="Email ${rep} about an update">🔔 Notify ${rep}</button>
+        ${oa?'':`<button class="btn btn-ghost btn-sm" onclick="openReqAct()" title="Ask ${rep} to do something before this can progress">⚡ Request action</button>`}
+      </div>`:''}
       <div class="rq-msgs" id="rqMsgs" style="max-height:48vh">${_reqMsgs.length?_reqMsgs.map(m=>`<div class="rq-msg${m.author===me?' mine':''}${/^(⚡ Action needed|✔ Action done)/.test(m.body||'')?' action-msg':''}">${m.body?esc(m.body):''}${reqMsgFilesHTML(m)}<small>${m.author===me?'You':esc(reqName(m.author))} · ${fmtEntryDate(m.created_at.slice(0,10),false)} ${m.created_at.slice(11,16)}</small></div>`).join(''):`<div style="font-size:.84rem;color:var(--text3)">No messages. Anything you post here shows on ${rep}'s request page.</div>`}</div>
       <div class="rq-reply" id="rqReplyBox">
         <button class="rq-attach" title="Attach files (or paste / drag them in) — saved to SharePoint" onclick="$('rqMsgFiles').click()">📎</button>
@@ -6641,8 +6641,6 @@ async function refreshReqModal(noFetch){
       ${r.status==='New'?`<button class="btn btn-ghost" onclick="setReqStatus('${id}','Acknowledged'${r.assigned_to?'':`,{assigned_to:'${esc(me)}'}`})" title="Lets the rep know you've seen it${r.assigned_to?'':' and assigns it to you'}">✓ Acknowledge${r.assigned_to?'':' & take it'}</button>`:''}
       <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteRequest('${id}')" title="Permanently delete this request">🗑 Delete</button>
       <div class="spacer"></div>
-      <button class="btn btn-ghost" onclick="openReqNotify()" title="Email ${rep} about an update">🔔 Notify ${rep}</button>
-      <button class="btn btn-ghost" onclick="openReqAct()" title="Ask ${rep} to do something before this can progress">⚡ Request action</button>
       <button class="btn" onclick="completeRequest('${id}')" title="Removes it from the open list">✔ Mark complete</button>`
     :`<button class="btn btn-ghost" onclick="setReqStatus('${id}','In Progress')">↺ Reopen</button>
       <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteRequest('${id}')" title="Permanently delete this request">🗑 Delete</button>
@@ -6911,7 +6909,7 @@ function raAdd(list){ [...list].forEach(f=>{ if(f.size>50*1048576){ toast(f.name
 function openReqAct(){
   const r=reqData.find(x=>x.id===reqOpenId); if(!r) return;
   if(reqOpenAction(r.id)){ toast(`There's already an open action — cancel it first`,'error'); return; }
-  _raPending=[]; $('raPend').innerHTML=''; $('raIns').value=''; $('raDue').value='';
+  _raPending=[]; $('raPend').innerHTML=''; $('raIns').value='';
   $('raSub').textContent=`For ${reqName(r.requested_by)} on ${reqDisplayRef(r,reqItemsFor(r.id))} · ${reqTitleText(r)}`;
   $('raEmailNote').innerHTML=`📧 ${esc(reqName(r.requested_by))} is emailed automatically and sees <b>⚡ Action needed</b> at the top of the ticket until they mark it done.`;
   $('raSaveBtn').disabled=false; $('raSaveBtn').textContent='⚡ Send action';
@@ -6922,7 +6920,7 @@ function closeReqAct(){ $('reqActOverlay')?.classList.add('hidden'); }
 async function saveReqAct(){
   const id=reqOpenId; const r=reqData.find(x=>x.id===id); if(!r) return;
   const ins=$('raIns').value.trim(); if(!ins){ toast('Say what they need to do','error'); return; }
-  const due=$('raDue').value||null, files=[..._raPending];
+  const due=null, files=[..._raPending];
   if(!(await reqSpReady(files))) return;
   const btn=$('raSaveBtn'); btn.disabled=true; btn.textContent=files.length?'Saving files…':'Sending…';
   try{
