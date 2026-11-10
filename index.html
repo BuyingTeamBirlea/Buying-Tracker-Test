@@ -646,6 +646,14 @@ body.light-mode .cp-event{color:#475569}
 .em-comp .em-crow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
 .em-comp input[type=date]{background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:4px 8px;font-family:inherit;font-size:.8rem}
 .em-hint{font-size:.76rem;color:var(--text3)}
+.em-sugg{padding:10px 14px;background:rgba(79,110,247,.07);border-bottom:1px solid var(--border)}
+.em-sugg-lbl{font-size:.76rem;font-weight:600;color:var(--accent2);margin-bottom:4px}
+.em-sugg-txt{font-size:.9rem;color:var(--text);line-height:1.5;white-space:pre-wrap}
+.em-sugg .em-crow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.em-sline{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;padding:5px 8px;background:rgba(79,110,247,.08);border:1px solid rgba(79,110,247,.25);border-radius:var(--radius-sm);font-size:.84rem;cursor:default}
+.em-sline.muted{background:none;border-style:dashed}
+.em-stxt{color:var(--text);flex:1;min-width:0}
+.em-sedit{flex:1;min-width:200px;background:var(--bg4);border:1px solid var(--accent);color:var(--text);border-radius:4px;padding:4px 8px;font-family:inherit;font-size:.84rem;outline:none}
 .em-assign{background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:3px 6px;font-family:inherit;font-size:.78rem;max-width:260px}
 .rq-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:100px;font-size:.74rem;font-weight:500;white-space:nowrap}
 .rq-New{background:rgba(79,110,247,.15);color:#8aa0fb}
@@ -7130,9 +7138,9 @@ function startBCBackgroundSync(){
 // full bodies are fetched on demand when you expand or summarise.
 // ═══════════════════════════════════════
 const COPILOT_URL='https://m365.cloud.microsoft/chat';
-const EMAIL_LIST_COLS='id,item_id,ref_code,status,direction,subject,from_name,from_email,to_emails,received_at,preview,conversation_id,has_attachments,match_method,processed_at,processed_by';
+const EMAIL_LIST_COLS='id,item_id,ref_code,status,direction,subject,from_name,from_email,to_emails,received_at,preview,conversation_id,has_attachments,match_method,processed_at,processed_by,suggested_summary,suggestion_dismissed';
 let emailNew=[], emailHandled=null, _emailAvailable=true, _lastKnownEmailTs=null, _emailTick=0, _emailKnownIds=null;
-let _emailView='new';
+let _emailView='new', emailSugg=[];
 const _emSel={}, _emBodies={}, _emOpen=new Set(), _emComp={};
 let _emItemCache={}; // itemId → all emails for that item (item tab)
 
@@ -7184,6 +7192,8 @@ function updateEmailBadge(){
   const oldest=emailNew.reduce((m,e)=>e.received_at<m?e.received_at:m,emailNew[0].received_at);
   const stale=reqDays(oldest)>=3;
   const parts=[`<b>${n} new supplier email${n>1?'s':''}</b>${items?` across ${items} item${items>1?'s':''}`:''}`];
+  const nSug=emailNew.filter(emailHasSugg).length;
+  if(nSug) parts.push(`<b>✨ ${nSug} suggested update${nSug>1?'s':''} ready</b>`);
   if(unmatched) parts.push(`${unmatched} unmatched`);
   if(stale) parts.push(`<b style="color:var(--red)">oldest ${reqDays(oldest)} days</b>`);
   bn.className='req-banner';
@@ -7250,6 +7260,9 @@ function emailGroupHTML(key,emails,opts={}){
   const newOnes=emails.filter(e=>e.status==='new');
   const selected=newOnes.filter(e=>_emSel[e.id]!==false);
   const canAct=!VIEW_ONLY && newOnes.length>0;
+  const sugN=unmatched?0:newOnes.filter(emailHasSugg).length;
+  const sumBtn='btn btn-ghost btn-sm', sumLbl='Copilot';
+  const accAll=(canAct&&sugN)?`<button class="btn btn-sm" onclick="emailAcceptAll('${key}')" title="Adds one timeline entry per email, dated when each email arrived">✓ Accept ${sugN>1?`all ${sugN}`:'suggestion'}</button>`:'';
   let head='';
   if(!opts.inTab){
     const title=unmatched?'Unmatched emails':(item?esc(item.name):'Item not found');
@@ -7258,7 +7271,8 @@ function emailGroupHTML(key,emails,opts={}){
       :`${item?.refCode?`<span class="em-ref">${esc(item.refCode)}</span>`:''}<span>${esc(item?.supplier||'')}</span>${item?stageBadge(item.stage):''}<span>${emails.length} email${emails.length>1?'s':''}</span>`;
     head=`<div class="em-ghead">
       <div style="flex:1;min-width:0"><div class="em-gtitle">${unmatched?'❔ ':''}${title}</div><div class="em-gsub">${sub}</div></div>
-      ${canAct&&!unmatched?`<button class="btn btn-sm" onclick="emailSummarise('${gid}','${key}')" title="Copies a ready-made prompt + the selected emails, then opens Copilot">✨ Summarise ${selected.length>1?`all ${selected.length}`:''}</button>`:''}
+      ${accAll}
+      ${canAct&&!unmatched?`<button class="${sumBtn}" onclick="emailSummarise('${gid}','${key}')" title="Copies a ready-made prompt + the selected emails, then opens Copilot">${sumLbl}</button>`:''}
       ${canAct&&!unmatched?`<button class="btn btn-ghost btn-sm" onclick="emailOpenComposer('${gid}','${key}')">＋ Add to timeline</button>`:''}
       ${canAct?`<button class="btn btn-ghost btn-sm" onclick="emailSetStatus(emailSelectedIds('${key}'),'dismissed')" title="Mark the selected emails as not needing a timeline update">Dismiss${selected.length>1?' selected':''}</button>`:''}
       ${item?`<button class="btn btn-ghost btn-sm" onclick="openDetail('${item.id}','emails')">Open item</button>`:''}
@@ -7266,7 +7280,8 @@ function emailGroupHTML(key,emails,opts={}){
   } else if(canAct){
     head=`<div class="em-ghead">
       <div class="em-gsub" style="flex:1">${newOnes.length} new · ${emails.length-newOnes.length} handled</div>
-      <button class="btn btn-sm" onclick="emailSummarise('${gid}','${key}')">✨ Summarise ${selected.length>1?`all ${selected.length}`:''}</button>
+      ${accAll}
+      <button class="${sumBtn}" onclick="emailSummarise('${gid}','${key}')">${sumLbl}</button>
       <button class="btn btn-ghost btn-sm" onclick="emailOpenComposer('${gid}','${key}')">＋ Add to timeline</button>
       <button class="btn btn-ghost btn-sm" onclick="emailSetStatus(emailSelectedIds('${key}'),'dismissed')">Dismiss${selected.length>1?' selected':''}</button>
     </div>`;
@@ -7302,6 +7317,7 @@ function emailRowHTML(e,o){
       <div class="em-from">${who}${e.match_method==='thread'?' · matched by thread':''}${o.unmatched&&e.ref_code?` · code ${esc(e.ref_code)} not on any item`:''}</div>
       ${open?'':`<div class="em-prev">${esc(e.preview||'')}</div>`}
       ${body}
+      ${isNew&&!o.unmatched?emailSuggLine(e,o.canAct):''}
     </div>
     <div class="em-acts">${acts}</div>
   </div>`;
@@ -7404,50 +7420,90 @@ async function emailSaveTimeline(gid,key){
   if(!raw){ toast('Paste or type the update first','error'); return; }
   const ids=emailSelectedIds(key);
   if(!ids.length){ toast('Tick at least one email first','error'); return; }
-  const note=raw.startsWith('✉️')?raw:'✉️ '+raw;
   const date=$('emd-'+gid)?.value||todayISO();
-  const s=getStoredSession(); const createdBy=s?.user?.email||'';
-  const id=newId();
+  const sid=_emComp[gid]?.suggestionId||null;
+  if(await emailCommitTimeline(item,raw,date,ids,sid)) delete _emComp[gid];
+  await loadEmails();
+}
+
+// Shared: write a ✉️ timeline entry, mark the emails done, and close the suggestion if there was one
+async function emailCommitTimeline(item,text,date,ids,suggestionId){
+  const note=text.startsWith('✉️')?text:'✉️ '+text;
+  const s=getStoredSession(); const by=s?.user?.email||'';
+  const id=newId(), now=new Date().toISOString();
   try{
-    const res=await SB.post('timeline_entries',{id,item_id:item.id,date,note,created_by:createdBy});
-    if(!res||(Array.isArray(res)&&!res.length)){ toast('Entry blocked by database','error'); return; }
+    const res=await SB.post('timeline_entries',{id,item_id:item.id,date,note,created_by:by});
+    if(!res||(Array.isArray(res)&&!res.length)){ toast('Entry blocked by database','error'); return false; }
     item.timeline=item.timeline||[];
-    item.timeline.push({id,date,note,createdBy,createdAt:new Date().toISOString()});
-    await SB.patch(`items?id=eq.${item.id}`,{updated_at:new Date().toISOString()});
-    await SB.patch(`email_updates?id=in.(${ids.join(',')})`,{status:'processed',processed_at:new Date().toISOString(),processed_by:createdBy,timeline_entry_id:id});
-    delete _emComp[gid];
+    item.timeline.push({id,date,note,createdBy:by,createdAt:now});
+    await SB.patch(`items?id=eq.${item.id}`,{updated_at:now});
+    if(ids.length) await SB.patch(`email_updates?id=in.(${ids.join(',')})&status=eq.new`,{status:'processed',processed_at:now,processed_by:by,timeline_entry_id:id});
+    if(suggestionId) await SB.patch(`email_suggestions?id=eq.${suggestionId}`,{status:'accepted',decided_at:now,decided_by:by,timeline_entry_id:id});
     toast(`Added to ${item.refCode||item.name} timeline`);
-    await loadEmails(); render();
-    if(currentItemId===item.id) refreshDetailHeader();
-  }catch(e){ toast('Failed to save: '+e.message,'error'); }
+    render(); if(currentItemId===item.id) refreshDetailHeader();
+    return true;
+  }catch(e){ toast('Failed to save: '+e.message,'error'); return false; }
 }
 
-async function emailSetStatus(ids,status){
-  if(!ids||!ids.length){ toast('Tick at least one email first','error'); return; }
-  const s=getStoredSession();
-  const patch=status==='new'
-    ?{status:'new',processed_at:null,processed_by:null,timeline_entry_id:null}
-    :{status,processed_at:new Date().toISOString(),processed_by:s?.user?.email||''};
-  try{
-    await SB.patch(`email_updates?id=in.(${ids.join(',')})`,patch);
-    toast(status==='new'?'Moved back to New':status==='dismissed'?`Dismissed ${ids.length} email${ids.length>1?'s':''}`:'Updated');
-    await loadEmails();
-  }catch(e){ toast('Failed: '+e.message,'error'); }
+const emailHasSugg=e=>e.status==='new'&&!!e.suggested_summary&&!e.suggestion_dismissed;
+const _emEditing=new Set();
+const emailLocalDate=iso=>{ const d=new Date(iso); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+function emailSuggLine(e,canAct){
+  if(_emEditing.has(e.id)) return `<div class="em-sline" onclick="event.stopPropagation()">✨ <input class="em-sedit" id="ems-${e.id}" value="${esc(e.suggested_summary||'')}" placeholder="Short update for the timeline…" onkeydown="if(event.key==='Enter')emailAcceptOne('${e.id}',this.value);if(event.key==='Escape'){_emEditing.delete('${e.id}');emailRerender()}">
+    <button class="btn btn-xs" onclick="emailAcceptOne('${e.id}',$('ems-${e.id}').value)">Save</button>
+    <button class="btn btn-ghost btn-xs" onclick="_emEditing.delete('${e.id}');emailRerender()">Cancel</button></div>`;
+  if(!emailHasSugg(e)){
+    if(e.suggestion_dismissed||!canAct) return '';
+    return `<div class="em-sline muted" onclick="event.stopPropagation()">✨ <span class="em-hint">Suggestion on the next hourly run</span> <button class="btn btn-ghost btn-xs" onclick="emailEditOne('${e.id}')" title="Write the timeline line yourself">✎ Write</button></div>`;
+  }
+  return `<div class="em-sline" onclick="event.stopPropagation()">✨ <span class="em-stxt">${esc(e.suggested_summary)}</span>${canAct?`
+    <button class="btn btn-xs" onclick="emailAcceptOne('${e.id}')" title="Add to timeline, dated ${fmtShort(emailLocalDate(e.received_at))}">✓</button>
+    <button class="btn btn-ghost btn-xs" onclick="emailEditOne('${e.id}')" title="Edit before adding">✎</button>
+    <button class="btn btn-ghost btn-xs" onclick="emailDismissOne('${e.id}')" title="Don't add this one to the timeline">✕</button>`:''}</div>`;
 }
-
-async function emailAssign(id,itemId){
-  if(!itemId) return;
-  const e=emailNew.find(x=>x.id===id); const item=data.find(i=>i.id===itemId);
-  if(!e||!item) return;
+function emailEditOne(id){
+  const e=emailNew.find(x=>x.id===id); if(!e) return;
+  _emEditing.add(id); emailRerender();
+  setTimeout(()=>{ const t=$('ems-'+id); if(t){ t.focus(); t.setSelectionRange(t.value.length,t.value.length); } },0);
+}
+// One timeline entry per email, each dated the day that email arrived
+async function emailCommitEach(item,list){
+  const s=getStoredSession(); const by=s?.user?.email||''; let done=0;
   try{
-    // move the whole thread across, so later replies stay with this item too
-    const filter=e.conversation_id
-      ?`conversation_id=eq.${encodeURIComponent(e.conversation_id)}&item_id=is.null`
-      :`id=eq.${id}`;
-    await SB.patch(`email_updates?${filter}`,{item_id:itemId,ref_code:item.refCode||null,match_method:'manual'});
-    toast(`Assigned to ${item.refCode||item.name}`);
-    await loadEmails();
-  }catch(err){ toast('Failed to assign: '+err.message,'error'); }
+    for(const {e,text} of list){
+      const note='✉️ '+text.replace(/^✉️\s*/,'');
+      const id=newId(), date=emailLocalDate(e.received_at), now=new Date().toISOString();
+      const res=await SB.post('timeline_entries',{id,item_id:item.id,date,note,created_by:by});
+      if(!res||(Array.isArray(res)&&!res.length)){ toast('Entry blocked by database','error'); break; }
+      item.timeline=item.timeline||[]; item.timeline.push({id,date,note,createdBy:by,createdAt:now});
+      await SB.patch(`email_updates?id=eq.${e.id}&status=eq.new`,{status:'processed',processed_at:now,processed_by:by,timeline_entry_id:id,suggested_summary:text});
+      done++;
+    }
+    if(done){ await SB.patch(`items?id=eq.${item.id}`,{updated_at:new Date().toISOString()});
+      toast(`Added ${done} update${done>1?'s':''} to ${item.refCode||item.name}`); render(); if(currentItemId===item.id) refreshDetailHeader(); }
+  }catch(err){ toast('Failed to save: '+err.message,'error'); }
+  return done;
+}
+async function emailAcceptOne(id,text){
+  const e=emailNew.find(x=>x.id===id); if(!e) return;
+  const t=(text!==undefined?text:e.suggested_summary||'').trim();
+  if(!t){ toast('Type a short update first','error'); return; }
+  const item=data.find(i=>i.id===e.item_id); if(!item){ toast('Item not found','error'); return; }
+  _emEditing.delete(id);
+  await emailCommitEach(item,[{e,text:t}]);
+  await loadEmails();
+}
+async function emailAcceptAll(key){
+  const item=data.find(i=>i.id===key); if(!item) return;
+  const list=emailNew.filter(e=>e.item_id===key&&emailHasSugg(e)&&_emSel[e.id]!==false)
+    .sort((a,b)=>a.received_at.localeCompare(b.received_at)).map(e=>({e,text:e.suggested_summary}));
+  if(!list.length){ toast('No ticked emails have a suggestion yet','error'); return; }
+  await emailCommitEach(item,list);
+  await loadEmails();
+}
+async function emailDismissOne(id){
+  try{ await SB.patch(`email_updates?id=eq.${id}`,{suggestion_dismissed:true}); await loadEmails(); }
+  catch(e){ toast('Failed: '+e.message,'error'); }
 }
 
 // Item modal tab: every email for this item (new + handled), newest thread activity last
